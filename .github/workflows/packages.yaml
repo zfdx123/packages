@@ -1,0 +1,71 @@
+name: Sync Packages
+
+on:
+  workflow_dispatch:
+
+jobs:
+  sync-packages:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout current repo
+        uses: actions/checkout@v4
+        with:
+          ref: packages
+          fetch-depth: 0
+
+      - name: Set up Git config
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+
+      - name: Clean existing files (except .git)
+        run: |
+          # 保留 .git 目录，删除其他所有文件和目录
+          find . -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
+
+      - name: Sync sbwml/luci-app-mosdns
+        run: |
+          git clone --depth 1 --filter=blob:none --sparse https://github.com/sbwml/luci-app-mosdns src-sbwml
+          cd src-sbwml
+          git sparse-checkout set luci-app-mosdns mosdns v2dat
+          cd ..
+          rm -rf src-sbwml/.github
+          cp -r src-sbwml/* .
+          rm -rf src-sbwml
+
+      - name: Sync kenzok8/small-package
+        run: |
+          git clone --depth 1 --filter=blob:none --sparse https://github.com/kenzok8/small-package src-kenzok8
+          cd src-kenzok8
+          git sparse-checkout set luci-app-adguardhome adguardhome
+          cd ..
+          rm -rf src-kenzok8/.github
+          cp -r src-kenzok8/* .
+          rm -rf src-kenzok8
+
+      - name: Sync xiaorouji/openwrt-passwall-packages
+        run: |
+          git clone --depth 1 --filter=blob:none https://github.com/xiaorouji/openwrt-passwall-packages src-passwall-pkg
+          rm -rf src-passwall-pkg/.github
+          cp -r src-passwall-pkg/* .
+          rm -rf src-passwall-pkg
+
+      - name: Sync xiaorouji/openwrt-passwall
+        run: |
+          git clone --depth 1 --filter=blob:none --sparse https://github.com/xiaorouji/openwrt-passwall src-passwall
+          cd src-passwall
+          git sparse-checkout set luci-app-passwall
+          cd ..
+          rm -rf src-passwall/.github
+          cp -r src-passwall/* .
+          rm -rf src-passwall
+
+      - name: Commit and push changes
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            git add .
+            git commit -m "chore: sync packages from upstream repositories"
+            git push origin packages
+          else
+            echo "No changes to commit"
+          fi
