@@ -72,6 +72,7 @@ jobs:
 
     - name: Commit and push changes
       run: |
+        rm -rf README.md install.sh LICENSE
         git add .
         git commit -m "chore: sync packages" || echo "No changes to commit"
         git push origin packages
