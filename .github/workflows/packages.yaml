@@ -43,16 +43,6 @@ jobs:
         cp -r src-sbwml/* .
         rm -rf src-sbwml
 
-    - name: Sync kenzok8/small-package
-      run: |
-        git clone --depth 1 --filter=blob:none --sparse https://github.com/kenzok8/small-package src-kenzok8
-        cd src-kenzok8
-        git sparse-checkout set luci-app-adguardhome adguardhome
-        cd ..
-        rm -rf src-kenzok8/.github
-        cp -r src-kenzok8/* .
-        rm -rf src-kenzok8
-
     - name: Sync xiaorouji/openwrt-passwall-packages
       run: |
         git clone --depth 1 --filter=blob:none https://github.com/xiaorouji/openwrt-passwall-packages src-passwall-pkg
@@ -69,6 +59,13 @@ jobs:
         rm -rf src-passwall/.github
         cp -r src-passwall/* .
         rm -rf src-passwall
+    - name: Sync zfdx123/luci-app-adguard
+      run: |
+        git clone --depth 1 --filter=blob:none --sparse https://github.com/zfdx123/luci-app-adguard luci-app-adguard
+        cd luci-app-adguard
+        git sparse-checkout set luci-app-adguard
+        cp -r luci-app-adguard/* .
+        rm -rf luci-app-adguard
 
     - name: Commit and push changes
       run: |
