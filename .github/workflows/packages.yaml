@@ -64,6 +64,7 @@ jobs:
         git clone --depth 1 --filter=blob:none --sparse https://github.com/zfdx123/luci-app-adguard luci-app-adguard
         cd luci-app-adguard
         git sparse-checkout set luci-app-adguard
+        cd ..
         cp -r luci-app-adguard/* .
         rm -rf luci-app-adguard
 
