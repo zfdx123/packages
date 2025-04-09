@@ -61,12 +61,13 @@ jobs:
         rm -rf src-passwall
     - name: Sync zfdx123/luci-app-adguard
       run: |
-        git clone --depth 1 --filter=blob:none --sparse https://github.com/zfdx123/luci-app-adguard luci-app-adguard
-        cd luci-app-adguard
+        git clone --depth 1 --filter=blob:none --sparse https://github.com/zfdx123/luci-app-adguard src-adguard
+        cd src-adguard
         git sparse-checkout set luci-app-adguard
         cd ..
-        cp -r luci-app-adguard/* .
-        rm -rf luci-app-adguard
+        rm -rf src-adguard/.github
+        cp -r src-adguard/* .
+        rm -rf src-adguard
 
     - name: Commit and push changes
       run: |
