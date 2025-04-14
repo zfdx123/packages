@@ -349,11 +349,8 @@ msgstr "添加节点"
 msgid "Add the node via the link"
 msgstr "通过链接添加节点"
 
-msgid "Share Link"
-msgstr "分享链接"
-
-msgid "Not a subscription link!!!"
-msgstr "不是订阅链接！！！"
+msgid "Enter share links, one per line. Subscription links are not supported!"
+msgstr "输入分享链接，支持多个节点，每行一个。请勿输入订阅链接！"
 
 msgid "Please enter the correct link."
 msgstr "请输入正确的链接。"
@@ -630,6 +627,9 @@ msgstr "延迟"
 
 msgid "Automatic detection delay"
 msgstr "自动检测延迟"
+
+msgid "To optimize performance, auto-detection is disabled when there are more than 30 nodes."
+msgstr "为优化性能，超过 30 个节点不自动检测。"
 
 msgid "Show server address and port"
 msgstr "显示服务器地址和端口"
