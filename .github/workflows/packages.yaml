@@ -72,6 +72,9 @@ jobs:
     - name: Sync zfdx123/msd_lite
       run: |
         git clone --depth 1 --filter=blob:none --sparse https://github.com/zfdx123/msd_lite src-msd_lite
+        cd src-sbwml
+        git sparse-checkout set luci-app-msd_lite msd_lite
+        cd ..
         rm -rf src-msd_lite/.github
         cp -r src-msd_lite/* .
         rm -rf src-msd_lite
