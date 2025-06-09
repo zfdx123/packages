@@ -69,7 +69,7 @@ return view.extend({
         }
 
         // Configuration section
-        s = m.section(form.TypedSection, 'default', _('Basic Settings'));
+        s = m.section(form.TypedSection, 'msd_lite', _('Basic Settings'));
         s.anonymous = false;
         s.addremove = false;
 
