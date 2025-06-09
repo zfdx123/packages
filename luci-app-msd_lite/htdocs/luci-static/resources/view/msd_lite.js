@@ -27,7 +27,7 @@ function getServiceStatus() {
 }
 
 function renderStatus(isRunning) {
-	var spanTemp = '<em><span style="color:%s"><strong>%s (%s) %s</strong></span></em>';
+	var spanTemp = '<em><span style="color:%s"><strong>%s %s</strong></span></em>';
 	var renderHTML;
 	if (isRunning)
 		renderHTML = spanTemp.format('green', _('msd_lite'), _('Running'));
@@ -71,55 +71,55 @@ return view.extend({
 		s = m.section(form.NamedSection, 'default', 'msd_lite');
         s.tab('settings', _('Basic Settings'));
 
-		o = s.option(form.Flag, 'enabled', _('Enable'), _('Enable Msd_lite service'));
+		o = s.taboption('settings', form.Flag, 'enabled', _('Enable'), _('Enable Msd_lite service'));
 		o.rmempty = false;
 
-		o = s.option(form.DynamicList, 'address', _('Bind address'));
+		o = s.taboption('settings', form.DynamicList, 'address', _('Bind address'));
 		o.datatype = 'ipaddrport';
 		o.rmempty = false;
 		o.placeholder = '0.0.0.0:8080';
 
-		o = s.option(widgets.NetworkSelect, 'network', _('Source interface'),
+		o = s.taboption('settings', widgets.NetworkSelect, 'network', _('Source interface'),
 			_('Used for receiving multicast.'));
 		o.nocreate = true;
 		o.optional = true;
 
-		o = s.option(form.Value, 'threads', _('Worker threads'),
+		o = s.taboption('settings', form.Value, 'threads', _('Worker threads'),
 			_('Set 0 or leave empty to auto detect.'));
 		o.datatype = 'uinteger';
 		o.placeholder = '0';
 
-		o = s.option(form.Flag, 'bind_to_cpu', _('Bind threads to CPUs'));
+		o = s.taboption('settings', form.Flag, 'bind_to_cpu', _('Bind threads to CPUs'));
 		o.default = o.disabled;
 
-		o = s.option(form.Flag, 'drop_slow_clients', _('Disconnect slow clients'));
+		o = s.taboption('settings', form.Flag, 'drop_slow_clients', _('Disconnect slow clients'));
 		o.default = o.disabled;
 
-		o = s.option(form.Value, 'precache_size', _('Pre cache size'));
+		o = s.taboption('settings', form.Value, 'precache_size', _('Pre cache size'));
 		o.datatype = 'uinteger';
 		o.placeholder = '4096';
 
-		o = s.option(form.Value, 'ring_buffer_size', _('Ring buffer size'),
+		o = s.taboption('settings', form.Value, 'ring_buffer_size', _('Ring buffer size'),
 			_('Stream receive ring buffer size.'));
 		o.datatype = 'uinteger';
 		o.placeholder = '1024';
 
-		o = s.option(form.Value, 'multicast_recv_buffer_size', _('Receive buffer size'),
+		o = s.taboption('settings', form.Value, 'multicast_recv_buffer_size', _('Receive buffer size'),
 			_('Multicast socket receive buffer size.'));
 		o.datatype = 'uinteger';
 		o.placeholder = '512';
 
-		o = s.option(form.Value, 'multicast_recv_timeout', _('Receive timeout'),
+		o = s.taboption('settings', form.Value, 'multicast_recv_timeout', _('Receive timeout'),
 			_('Multicast receive timeout (seconds).'));
 		o.datatype = 'uinteger';
 		o.placeholder = '2';
 
-		o = s.option(form.Value, 'rejoin_time', _('IGMP/MLD rejoin time'),
+		o = s.taboption('settings', form.Value, 'rejoin_time', _('IGMP/MLD rejoin time'),
 			_('IGMP/MLD leave+join interval in seconds. 0 disables.'));
 		o.datatype = 'uinteger';
 		o.placeholder = '0';
 
-		o = s.option(form.ListValue, 'loglevel', _('Log Level'),
+		o = s.taboption('settings', form.ListValue, 'loglevel', _('Log Level'),
 			_('Syslog severity level: 0=emerg, 7=debug'));
 		for (let i = 0; i <= 7; i++) {
 			o.value(i.toString(), i.toString());

@@ -23,12 +23,14 @@ add_interface_triggers() {
 }
 
 # 启动服务
-start_instance() {
+start_service() {
     local seconds="0"
     local enabled address network interface
     local bindlist addr bind_to_cpu drop_slow_clients
     local loglevel threads precache_size ring_buffer_size
     local multicast_recv_buffer_size multicast_recv_timeout rejoin_tim
+
+    config_load "$NAME"
     
     # 检查服务是否启用
     config_get_bool enabled "$CONFIG_SECTION" "enabled" "0"
@@ -106,12 +108,6 @@ start_instance() {
     procd_close_instance
 }
 
-start_service() {
-	config_load "$NAME"
-
-	start_instance
-}
-
 # 停止服务
 stop_service() {
     # 停止服务并删除配置文件
@@ -119,8 +115,7 @@ stop_service() {
     rm -f "$CONFDIR/$NAME.conf"
 }
 
-# 重新加载服务
-reload_service() {
+restart() {
     stop_service
     start_service
 }
@@ -128,7 +123,7 @@ reload_service() {
 # 添加服务触发器
 service_triggers() {
     # 添加配置文件变更触发器
-    procd_add_reload_trigger "$NAME"
+    procd_add_reload_trigger "$NAME" "/etc/init.d/$NAME" restart
     
     # 添加网络接口触发器
     config_load "$NAME"
