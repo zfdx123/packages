@@ -14,87 +14,53 @@ const callServiceList = rpc.declare({
 	expect: { '': {} }
 });
 
-const callServiceStop = rpc.declare({
-	object: 'service',
-	method: 'stop',
-	params: ['name', 'instance'],
-	expect: { result: false }
-});
-
-function getInstanceStatus(instanceName) {
+function getServiceStatus() {
 	return L.resolveDefault(callServiceList('msd_lite'), {}).then((res) => {
+		var isRunning = false;
 		try {
-			return !!res['msd_lite']['instances'][instanceName]['running'];
-		} catch (e) {
-			return false;
-		}
+			isRunning = res['msd_lite']['instances']['msd_lite']['running'];
+		} catch (e) { }
+		return isRunning;
 	});
 }
 
 function renderStatus(isRunning) {
-	const color = isRunning ? 'green' : 'red';
-	const text = isRunning ? _('Running') : _('Not Running');
-	return `<em><span style="color:${color}"><strong>${text}</strong></span></em>`;
+	var spanTemp = '<em><span style="color:%s"><strong>%s (%s) %s</strong></span></em>';
+	var renderHTML;
+	if (isRunning)
+		renderHTML = spanTemp.format('green', _('msd_lite'), _('Running'));
+	else
+		renderHTML = spanTemp.format('red', _('msd_lite'), _('Not Running'));
+
+	return renderHTML;
 }
 
 
 return view.extend({
-	render: function () {
-		const m = new form.Map('msd_lite', _('Multi Stream daemon Lite'),
+	render: async function () {
+		var m, s, o;
+
+		m = new form.Map('msd_lite', _('Multi Stream daemon Lite'),
 			_('The lightweight version of Multi Stream daemon (msd) for organizing IPTV streaming over HTTP.'));
 
-		const s = m.section(form.TypedSection, 'instance', _('Instances'));
-		s.anonymous = false;
-		s.addremove = true;
-		s.addbtntitle = _('Add instance');
-
-		// 自动生成唯一名字的 create 函数
-		s.create = function (section_id) {
-			let baseName = 'instance';
-			let idx = 1;
-			let newName = baseName + idx;
-
-			// 通过 get() 先获取所有存在的实例名字，避免重复
-			const existing = this.map.sections.map(s => s['.name']);
-
-			while (existing.includes(newName)) {
-				idx++;
-				newName = baseName + idx;
-			}
-
-			// 调用原始 create 方法，传入新名字
-			return form.TypedSection.prototype.create.call(this, newName);
-		};
-
-		s.handleRemove = function (section_id) {
-			return L.resolveDefault(callServiceStop('msd_lite', section_id), 3000).then(() => {
-				return form.TypedSection.prototype.handleRemove.call(this, section_id);
-			}).catch((e) => {
-				ui.addNotification(null, _('Failed to stop instance: ') + e.message);
-				throw e; // 阻止删除操作
-			});
-		};
-
-		// 状态显示字段
-		s.option(form.DummyValue, '_status', _('Service Status')).cfgvalue = function (section_id) {
-			poll.add(() => {
-				return getInstanceStatus(section_id).then(running => {
-					const view = document.getElementById('status_' + section_id);
-					if (view)
-						view.innerHTML = renderStatus(running);
+		s = m.section(form.TypedSection);
+		s.render = function () {
+			poll.add(function () {
+				return L.resolveDefault(getServiceStatus()).then((res) => {
+					var view = document.getElementById('service_status');
+					view.innerHTML = renderStatus(res);
 				});
 			});
 
-			return `<div id="status_${section_id}">${_('Collecting data...')}</div>`;
-		};
+			return E('div', { class: 'cbi-section', id: 'status_bar' }, [
+				E('p', { id: 'service_status' }, _('Collecting data...'))
+			]);
+		}
 
-		// 下面正常添加字段...
-		let o;
+		s = m.section(form.NamedSection, 'default', 'msd_lite');
+		s.tab('settings', _('Basic Settings'));
 
-		o = s.option(form.ListValue, 'enabled', _('Enable'));
-		o.value('1', _('Enabled'));
-		o.value('0', _('Disabled'));
-		o.default = '0';
+		o = s.taboption('settings', form.Flag, 'enabled', _('Enable'), _('Enable Msd_lite service'));
 		o.rmempty = false;
 
 		o = s.option(form.DynamicList, 'address', _('Bind address'));

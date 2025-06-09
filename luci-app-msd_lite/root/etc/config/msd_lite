@@ -1,4 +1,4 @@
-config instance 'instance1'
+config msd_lite 'default'
 	option 'enabled' '0'
 
 	# Bind address
