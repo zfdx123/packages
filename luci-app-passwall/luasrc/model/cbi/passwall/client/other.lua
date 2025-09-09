@@ -185,6 +185,10 @@ if has_xray then
 	o.default = "10-20"
 	o:depends("fragment", true)
 
+	o = s_xray:option(Value, "fragment_maxSplit", translate("Max Split"), translate("Limit the maximum number of splits."))
+	o.default = "100-200"
+	o:depends("fragment", true)
+
 	o = s_xray:option(Flag, "noise", translate("Noise"), translate("UDP noise, Under some circumstances it can bypass some UDP based protocol restrictions."))
 	o.default = 0
 
@@ -238,9 +242,17 @@ if has_xray then
 	o = s_xray_noise:option(Value, "delay", translate("Delay (ms)"))
 	o.datatype = "or(uinteger,portrange)"
 	o.rmempty = false
+
+	o = s_xray_noise:option(ListValue, "applyTo", translate("IP Type"))
+	o:value("ip", "ALL")
+	o:value("ipv4", "IPv4")
+	o:value("ipv6", "IPv6")
 end
 
 if has_singbox then
+	local version = api.get_app_version("sing-box"):match("[^v]+")
+	local version_ge_1_12_0 = api.compare_versions(version, ">=", "1.12.0")
+
 	s = m:section(TypedSection, "global_singbox", "Sing-Box " .. translate("Settings"))
 	s.anonymous = true
 	s.addremove = false
@@ -249,6 +261,16 @@ if has_singbox then
 	o.default = 0
 	o.rmempty = false
 	o.description = translate("Override the connection destination address with the sniffed domain.<br />When enabled, traffic will match only by domain, ignoring IP rules.<br />If using shunt nodes, configure the domain shunt rules correctly.")
+
+	if version_ge_1_12_0 then
+		o = s:option(Flag, "record_fragment", "TLS Record " .. translate("Fragment"),
+			translate("Split handshake data into multiple TLS records for better censorship evasion. Low overhead. Recommended to enable first."))
+		o.default = 0
+
+		o = s:option(Flag, "fragment", "TLS TCP " .. translate("Fragment"),
+			translate("Split handshake into multiple TCP segments. Enhances obfuscation. May increase delay. Use only if needed."))
+		o.default = 0
+	end
 end
 
 return m

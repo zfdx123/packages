@@ -210,7 +210,7 @@ o = s:option(ListValue, _n("flow"), translate("flow"))
 o.default = ""
 o:value("", translate("Disable"))
 o:value("xtls-rprx-vision")
-o:depends({ [_n("protocol")] = "vless" })
+o:depends({ [_n("protocol")] = "vless" , [_n("tls")] = true })
 
 o = s:option(Flag, _n("tls"), translate("TLS"))
 o.default = 0
@@ -322,14 +322,6 @@ o.validate = function(self, value)
 	end
 	return value
 end
-
-o = s:option(Flag, _n("pq_signature_schemes_enabled"), translate("PQ signature schemes"))
-o.default = "0"
-o:depends({ [_n("ech")] = true })
-
-o = s:option(Flag, _n("dynamic_record_sizing_disabled"), translate("Disable adaptive sizing of TLS records"))
-o.default = "0"
-o:depends({ [_n("ech")] = true })
 
 o = s:option(ListValue, _n("transport"), translate("Transport"))
 o:value("tcp", "TCP")

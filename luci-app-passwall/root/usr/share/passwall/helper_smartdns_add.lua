@@ -128,7 +128,7 @@ else
 	local f_in = io.open(custom_conf_path, "r")
 	if f_in then
 		for line in f_in:lines() do
-			line = line:match("^%s*(.-)%s*$")
+			line = api.trim(line)
 			if line ~= "" and not line:match("^#") then
 				local param, value = line:match("^(%S+)%s+(%S+)$")
 				if param and value then custom_config[param] = value end
@@ -214,14 +214,7 @@ if DNS_MODE == "socks" then
 
 		end
 
-		-- 判断是否为本地地址
-		local is_local = w:match("127%.0%.0%.")
-			or w:match("192%.168%.")
-			or w:match("10%.")
-			or w:match("172%.1[6-9]%.")
-			or w:match("172%.2[0-9]%.")
-			or w:match("172%.3[0-1]%.")
-		if not is_local then
+		if not api.is_local_ip(w) then
 			server_param = server_param .. " -proxy " .. proxy_server_name
 		end
 
