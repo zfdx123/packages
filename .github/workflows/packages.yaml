@@ -59,6 +59,7 @@ jobs:
         rm -rf src-passwall/.github
         cp -r src-passwall/* .
         rm -rf src-passwall
+        
     - name: Sync zfdx123/luci-app-adguard
       run: |
         git clone --depth 1 --filter=blob:none --sparse https://github.com/zfdx123/luci-app-adguard src-adguard
@@ -78,6 +79,16 @@ jobs:
         rm -rf src-msd_lite/.github
         cp -r src-msd_lite/* .
         rm -rf src-msd_lite
+        
+    - name: Sync NeonPulse-Zero/luci-theme-argon
+      run: |
+        git clone --depth 1 --filter=blob:none --sparse https://github.com/NeonPulse-Zero/luci-theme-argon src-luci-theme-argon
+        cd src-luci-theme-argon
+        git sparse-checkout set luci-app-argon-config luci-theme-argon
+        cd ..
+        rm -rf src-luci-theme-argon/.github
+        cp -r src-luci-theme-argon/* .
+        rm -rf src-luci-theme-argon
 
     - name: Commit and push changes
       run: |
