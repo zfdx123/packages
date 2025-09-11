@@ -9,9 +9,9 @@ PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/rozhuk-im/msd_lite.git
-PKG_SOURCE_DATE:=$(shell date -d @`git log -1 --format=%ct` +%Y-%m-%d)
-PKG_SOURCE_VERSION:=$(shell git ls-remote $(PKG_SOURCE_URL) HEAD | cut -f1)
-PKG_MIRROR_HASH:=skip
+PKG_SOURCE_DATE:=2025.09.11
+PKG_SOURCE_VERSION:=79a6c62c8fced6128a5e445ee110709b3b51bb78
+PKG_MIRROR_HASH:=2081142af8a4d697032ef00e75c9537b54a1a45fccbdd935bce5752c6d0eb00b
 
 PKG_MAINTAINER:=Tianling Shen <cnsztl@immrotalwrt.org>
 PKG_LICENSE:=BSD-2-Clause
