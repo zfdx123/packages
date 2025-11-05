@@ -3,10 +3,10 @@ name: Sync Packages
 on:
   workflow_dispatch:
 
-
 jobs:
   sync-packages:
     runs-on: ubuntu-latest
+
     steps:
     - name: Checkout current repo
       uses: actions/checkout@v4
@@ -19,18 +19,15 @@ jobs:
         git config --global user.name "GitHub Actions"
         git config --global user.email "actions@github.com"
 
-    - name: Create or switch to 'packages' branch
+    - name: Switch to or create 'packages' branch
       run: |
+        git fetch origin packages || true
         git checkout packages 2>/dev/null || git checkout -b packages
+        git pull origin packages || true
         git push --set-upstream origin packages || true
 
     - name: Clean workspace (keep .git)
       run: |
-        find . -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
-
-    - name: Clean existing files (except .git)
-      run: |
-        # 保留 .git 目录，删除其他所有文件和目录
         find . -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
 
     - name: Sync sbwml/luci-app-mosdns
@@ -82,19 +79,30 @@ jobs:
         
     - name: Sync jerrykuku/luci-theme-argon
       run: |
-        git clone --depth 1 --filter=blob:none --sparse https://github.com/jerrykuku/luci-theme-argon luci-theme-argon
+        git clone --depth 1 --filter=blob:none --sparse https://github.com/jerrykuku/luci-theme-argon src-argon
+        cd src-argon
         git sparse-checkout set luci-theme-argon
-        rm -rf luci-theme-argon/.github
+        cd ..
+        rm -rf src-argon/.github
+        cp -r src-argon/* .
+        rm -rf src-argon
 
-    - name: Sync jerrykuku/luci-theme-argon
+    - name: Sync jerrykuku/luci-app-argon-config
       run: |
-        git clone --depth 1 --filter=blob:none --sparse https://github.com/jerrykuku/luci-app-argon-config luci-app-argon-config
+        git clone --depth 1 --filter=blob:none --sparse https://github.com/jerrykuku/luci-app-argon-config src-argon-config
+        cd src-argon-config
         git sparse-checkout set luci-app-argon-config
-        rm -rf luci-app-argon-config/.github
+        cd ..
+        rm -rf src-argon-config/.github
+        cp -r src-argon-config/* .
+        rm -rf src-argon-config
       
     - name: Commit and push changes
       run: |
-        find . -maxdepth 1 -type f -exec rm -f {} +
         git add .
-        git commit -m "chore: sync packages" || echo "No changes to commit"
-        git push origin packages
+        if git diff --cached --quiet; then
+          echo "No changes to commit."
+        else
+          git commit -m "chore: sync packages"
+          git push origin packages
+        fi
