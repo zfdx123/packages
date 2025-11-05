@@ -82,14 +82,8 @@ jobs:
         
     - name: Sync jerrykuku/luci-theme-argon
       run: |
-        mkdir src-luci-theme-argon
-        git clone --depth 1 --filter=blob:none --sparse https://github.com/jerrykuku/luci-theme-argon src-luci-theme-argon/luci-theme-argon
-        cd src-luci-theme-argon
-        git sparse-checkout set luci-theme-argon
-        cd ..
-        rm -rf src-luci-theme-argon/luci-theme-argon/.github
-        cp -r src-luci-theme-argon/luci-theme-argon/* .
-        rm -rf src-luci-theme-argon
+        git clone --depth 1 --filter=blob:none --sparse https://github.com/jerrykuku/luci-theme-argon luci-theme-argon
+        rm -rf luci-theme-argon/.github
 
     - name: Commit and push changes
       run: |
