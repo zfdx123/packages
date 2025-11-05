@@ -1,0 +1,8 @@
+config adguard 'default'
+	option enabled '0'
+	option port '11553'
+	option redirect 'none'
+	option config_path '/etc/AdGuardHome.yaml'
+	option work_dir '/var/lib/adguardhome'
+	option log_file '/tmp/adguardhome.log'
+	option http_port '3000'

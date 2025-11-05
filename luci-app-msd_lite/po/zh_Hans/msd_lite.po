@@ -1,0 +1,89 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: zh_Hans\n"
+
+#: luci-app-msd-lite
+msgid "Multi Stream daemon Lite"
+msgstr "多流守护进程精简版"
+
+msgid "The lightweight version of Multi Stream daemon (msd) for organizing IPTV streaming over HTTP."
+msgstr "精简版 Multi Stream daemon (msd)，用于通过 HTTP 组织 IPTV 流媒体传输。"
+
+msgid "Service Status"
+msgstr "服务状态"
+
+msgid "Collecting data..."
+msgstr "正在收集数据..."
+
+msgid "msd_lite"
+msgstr "msd_lite"
+
+msgid "Running"
+msgstr "运行中"
+
+msgid "Not Running"
+msgstr "未运行"
+
+msgid "Basic Settings"
+msgstr "基本设置"
+
+msgid "Enable"
+msgstr "启用"
+
+msgid "Enable Msd_lite service"
+msgstr "启用 Msd_lite 服务"
+
+msgid "Bind address"
+msgstr "绑定地址"
+
+msgid "Source interface"
+msgstr "源接口"
+
+msgid "Used for receiving multicast."
+msgstr "用于接收组播。"
+
+msgid "Worker threads"
+msgstr "工作线程数"
+
+msgid "Set 0 or leave empty to auto detect."
+msgstr "设为 0 或留空以自动检测。"
+
+msgid "Bind threads to CPUs"
+msgstr "线程绑定 CPU"
+
+msgid "Disconnect slow clients"
+msgstr "断开慢速客户端"
+
+msgid "Pre cache size"
+msgstr "预缓存大小"
+
+msgid "Ring buffer size"
+msgstr "环形缓冲区大小"
+
+msgid "Stream receive ring buffer size."
+msgstr "流接收环形缓冲区大小。"
+
+msgid "Receive buffer size"
+msgstr "接收缓冲区大小"
+
+msgid "Multicast socket receive buffer size."
+msgstr "组播套接字接收缓冲区大小。"
+
+msgid "Receive timeout"
+msgstr "接收超时"
+
+msgid "Multicast receive timeout (seconds)."
+msgstr "组播接收超时时间（秒）。"
+
+msgid "IGMP/MLD rejoin time"
+msgstr "IGMP/MLD 重入时间"
+
+msgid "IGMP/MLD leave+join interval in seconds. 0 disables."
+msgstr "IGMP/MLD 离开+加入间隔时间（秒）。0 表示禁用。"
+
+msgid "Log Level"
+msgstr "日志级别"
+
+msgid "Syslog severity level: 0=emerg, 7=debug"
+msgstr "系统日志严重级别：0=紧急，7=调试"

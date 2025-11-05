@@ -1,0 +1,131 @@
+#!/bin/sh /etc/rc.common
+
+. /lib/functions/network.sh  # 导入网络相关函数库
+
+START=99                   # 启动优先级
+USE_PROCD=1               # 使用 procd 管理进程
+
+NAME="msd_lite"           # 服务名称
+PROG="/usr/bin/$NAME"     # 可执行程序路径
+CONF="/etc/$NAME/$NAME.conf.sample"  # 模板配置文件路径
+CONFDIR="/var/run/$NAME"  # 运行时生成配置文件目录
+CONFIG_SECTION="default"  # 使用固定配置节名称
+
+# 添加网络触发器
+add_interface_triggers() {
+    local enabled network
+    # 读取配置节中的 enabled
+    config_get_bool enabled "$CONFIG_SECTION" "enabled" "0"
+    # 读取配置节中的 network 字段
+    config_get network "$CONFIG_SECTION" "network"
+    # 如果 enabled = 1 且 network 非空，则为该 network 添加接口变更触发器
+    [ "$enabled" -eq 0 -o -z "$network" ] || procd_add_reload_interface_trigger "$network"
+}
+
+# 启动服务
+start_service() {
+    local seconds="0"
+    local enabled address network interface
+    local bindlist addr bind_to_cpu drop_slow_clients
+    local loglevel threads precache_size ring_buffer_size
+    local multicast_recv_buffer_size multicast_recv_timeout rejoin_tim
+
+    config_load "$NAME"
+    
+    # 检查服务是否启用
+    config_get_bool enabled "$CONFIG_SECTION" "enabled" "0"
+    [ "$enabled" -eq 1 ] || return 0
+    
+    # 获取地址列表
+    config_get address "$CONFIG_SECTION" "address"
+    # 地址不能为空
+    [ -n "$address" ] || {
+        logger -p daemon.err -t "$NAME" "No bind addresses configured."
+        return 1
+    }
+    
+    # 获取网络接口
+    config_get network "$CONFIG_SECTION" "network"
+    # 若配置了 network，则尝试最多10秒等待对应接口上线
+    if [ -n "$network" ]; then
+        while [ "$seconds" -le 10 ]; do
+            network_flush_cache
+            network_get_device interface "$network"
+            [ -n "$interface" ] && break
+            seconds=$((seconds + 2))
+            sleep 2
+        done
+        [ -n "$interface" ] || logger -p daemon.warn -t "$NAME" "Interface for network '$network' not found after 10 seconds"
+    fi
+    
+    # 生成绑定地址的 XML 列表
+    for addr in $address; do
+        bindlist="${bindlist:+$bindlist\\n\\t\\t\\t}<bind><address>$addr</address></bind>"
+    done
+
+    # 读取并转换布尔配置为 yes/no
+    config_get_bool bind_to_cpu "$CONFIG_SECTION" "bind_to_cpu" 0
+    [ "$bind_to_cpu" = "1" ] && bind_to_cpu="yes" || bind_to_cpu="no"
+
+    config_get_bool drop_slow_clients "$CONFIG_SECTION" "drop_slow_clients" 0
+    [ "$drop_slow_clients" = "1" ] && drop_slow_clients="yes" || drop_slow_clients="no"
+
+    # 读取其他配置参数
+    config_get loglevel "$CONFIG_SECTION" "loglevel" "0"
+    config_get threads "$CONFIG_SECTION" "threads" "0"
+    config_get precache_size "$CONFIG_SECTION" "precache_size" "4096"
+    config_get ring_buffer_size "$CONFIG_SECTION" "ring_buffer_size" "1024"
+    config_get multicast_recv_buffer_size "$CONFIG_SECTION" "multicast_recv_buffer_size" "512"
+    config_get multicast_recv_timeout "$CONFIG_SECTION" "multicast_recv_timeout" "2"
+    config_get rejoin_time "$CONFIG_SECTION" "rejoin_time" "0"
+
+    # 创建配置目录
+    mkdir -p "$CONFDIR"
+    # 通过模板替换生成具体的配置文件
+    sed -e "s,@logLevel@,$loglevel,g" \
+        -e "s,@threadsCountMax@,$threads,g" \
+        -e "s,@fBindToCPU@,$bind_to_cpu,g" \
+        -e "s,@bindList@,$bindlist,g" \
+        -e "s,@ifName@,$interface,g" \
+        -e "s,@fDropSlowClients@,$drop_slow_clients,g" \
+        -e "s,@precache@,$precache_size,g" \
+        -e "s,@ringBufSize@,$ring_buffer_size,g" \
+        -e "s,@rcvBuf@,$multicast_recv_buffer_size,g" \
+        -e "s,@rcvTimeout@,$multicast_recv_timeout,g" \
+        -e "s,@rejoinTime@,$rejoin_time,g" \
+        "$CONF" > "$CONFDIR/$NAME.conf"
+
+    # 使用 procd 启动服务
+    procd_open_instance "$NAME-c"
+    procd_set_param command "$PROG"
+	procd_append_param command -c "$CONFDIR/$NAME.conf"
+
+    procd_set_param limits core="unlimited"
+    procd_set_param limits nofile="1000000 1000000"
+
+    procd_set_param respawn
+    procd_set_param stderr 1
+    procd_close_instance
+}
+
+# 停止服务
+stop_service() {
+    # 停止服务并删除配置文件
+    procd_kill "$NAME-c" >/dev/null 2>&1
+    rm -f "$CONFDIR/$NAME.conf"
+}
+
+restart() {
+    stop_service
+    start_service
+}
+
+# 添加服务触发器
+service_triggers() {
+    # 添加配置文件变更触发器
+    procd_add_reload_trigger "$NAME" "/etc/init.d/$NAME" restart
+    
+    # 添加网络接口触发器
+    config_load "$NAME"
+    add_interface_triggers
+}
