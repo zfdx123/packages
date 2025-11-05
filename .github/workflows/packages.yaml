@@ -86,6 +86,12 @@ jobs:
         rm -rf src-argon/.git src-argon/.github
         cp -r src-argon ./luci-theme-argon
         rm -rf src-argon
+    - name: Sync jerrykuku/luci-app-argon-config
+      run: |
+        git clone --depth 1 https://github.com/jerrykuku/luci-app-argon-config src-argon-config
+        rm -rf src-argon-config/.git src-argon-config/.github
+        cp -r src-argon-config ./luci-theme-argon-config
+        rm -rf src-argon-config
 
     - name: Clean git submodules
       run: |
