@@ -30,6 +30,8 @@ jobs:
       run: |
         find . -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
 
+    # === 以下为同步多个上游仓库 ===
+
     - name: Sync sbwml/luci-app-mosdns
       run: |
         git clone --depth 1 --filter=blob:none --sparse https://github.com/sbwml/luci-app-mosdns src-sbwml
@@ -77,26 +79,23 @@ jobs:
         cp -r src-msd_lite/* .
         rm -rf src-msd_lite
         
+    # === 注意：以下两个仓库是根目录直接是项目，无需 sparse-checkout ===
+
     - name: Sync jerrykuku/luci-theme-argon
       run: |
-        git clone --depth 1 --filter=blob:none --sparse https://github.com/jerrykuku/luci-theme-argon src-argon
-        cd src-argon
-        git sparse-checkout set luci-theme-argon
-        cd ..
+        git clone --depth 1 https://github.com/jerrykuku/luci-theme-argon src-argon
         rm -rf src-argon/.github
         cp -r src-argon/* .
         rm -rf src-argon
 
     - name: Sync jerrykuku/luci-app-argon-config
       run: |
-        git clone --depth 1 --filter=blob:none --sparse https://github.com/jerrykuku/luci-app-argon-config src-argon-config
-        cd src-argon-config
-        git sparse-checkout set luci-app-argon-config
-        cd ..
+        git clone --depth 1 https://github.com/jerrykuku/luci-app-argon-config src-argon-config
         rm -rf src-argon-config/.github
         cp -r src-argon-config/* .
         rm -rf src-argon-config
-      
+
+    # === 提交推送 ===
     - name: Commit and push changes
       run: |
         git add .
