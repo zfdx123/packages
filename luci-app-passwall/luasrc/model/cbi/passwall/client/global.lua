@@ -11,8 +11,10 @@ local has_chnroute = fs.access("/usr/share/passwall/rules/chnroute")
 m = Map(appname)
 api.set_apply_on_parse(m)
 
+m:append(Template(appname .. "/cbi/nodes_listvalue_com"))
+
 local nodes_table = {}
-for k, e in ipairs(api.get_valid_nodes()) do
+for _, e in ipairs(api.get_valid_nodes()) do
 	nodes_table[#nodes_table + 1] = e
 end
 
@@ -21,7 +23,7 @@ local balancing_list = {}
 local urltest_list = {}
 local shunt_list = {}
 local iface_list = {}
-for k, v in pairs(nodes_table) do
+for _, v in pairs(nodes_table) do
 	if v.node_type == "normal" then
 		normal_list[#normal_list + 1] = v
 	end
@@ -62,7 +64,8 @@ m.uci:foreach(appname, "socks", function(s)
 		}
 		socks_list[#socks_list + 1] = {
 			id = "Socks_" .. s[".name"],
-			remark = translate("Socks Config") .. " " .. string.format("[%s %s]", s.port, translate("Port"))
+			remark = translate("Socks Config") .. " " .. string.format("[%s %s]", s.port, translate("Port")),
+			group = "Socks"
 		}
 	end
 end)
@@ -104,12 +107,16 @@ o.rmempty = false
 
 ---- TCP Node
 o = s:taboption("Main", ListValue, "tcp_node", "<a style='color: red'>" .. translate("TCP Node") .. "</a>")
+o.template = appname .. "/cbi/nodes_listvalue"
 o:value("", translate("Close"))
+o.group = {""}
 
 ---- UDP Node
 o = s:taboption("Main", ListValue, "udp_node", "<a style='color: red'>" .. translate("UDP Node") .. "</a>")
+o.template = appname .. "/cbi/nodes_listvalue"
 o:value("", translate("Close"))
 o:value("tcp", translate("Same as the tcp node"))
+o.group = {"",""}
 
 -- 分流
 if (has_singbox or has_xray) and #nodes_table > 0 then
@@ -136,15 +143,16 @@ if (has_singbox or has_xray) and #nodes_table > 0 then
 		for k, v in pairs(shunt_list) do
 			local vid = v.id
 			-- shunt node type, Sing-Box or Xray
-			local type = s:taboption("Main", ListValue, vid .. "-type", translate("Type"))
-			if has_singbox then
-				type:value("sing-box", "Sing-Box")
-			end
+			o = s:taboption("Main", ListValue, vid .. "-type", translate("Type"))
 			if has_xray then
-				type:value("Xray", translate("Xray"))
+				o:value("Xray", translate("Xray"))
 			end
-			type.cfgvalue = get_cfgvalue(v.id, "type")
-			type.write = get_write(v.id, "type")
+			if has_singbox then
+				o:value("sing-box", "Sing-Box")
+			end
+			o:depends("tcp_node", v.id)
+			o.cfgvalue = get_cfgvalue(v.id, "type")
+			o.write = get_write(v.id, "type")
 
 			-- pre-proxy
 			o = s:taboption("Main", Flag, vid .. "-preproxy_enabled", translate("Preproxy"))
@@ -155,29 +163,30 @@ if (has_singbox or has_xray) and #nodes_table > 0 then
 
 			o = s:taboption("Main", ListValue, vid .. "-main_node", string.format('<a style="color:red">%s</a>', translate("Preproxy Node")), translate("Set the node to be used as a pre-proxy. Each rule (including <code>Default</code>) has a separate switch that controls whether this rule uses the pre-proxy or not."))
 			o:depends(vid .. "-preproxy_enabled", "1")
+			o.template = appname .. "/cbi/nodes_listvalue"
+			o.group = {}
 			for k1, v1 in pairs(socks_list) do
 				o:value(v1.id, v1.remark)
+				o.group[#o.group+1] = (v1.group and v1.group ~= "") and v1.group or translate("default")
 			end
 			for k1, v1 in pairs(balancing_list) do
 				o:value(v1.id, v1.remark)
+				o.group[#o.group+1] = (v1.group and v1.group ~= "") and v1.group or translate("default")
 			end
 			for k1, v1 in pairs(urltest_list) do
 				o:value(v1.id, v1.remark)
+				o.group[#o.group+1] = (v1.group and v1.group ~= "") and v1.group or translate("default")
 			end
 			for k1, v1 in pairs(iface_list) do
 				o:value(v1.id, v1.remark)
+				o.group[#o.group+1] = (v1.group and v1.group ~= "") and v1.group or translate("default")
 			end
 			for k1, v1 in pairs(normal_list) do
 				o:value(v1.id, v1.remark)
+				o.group[#o.group+1] = (v1.group and v1.group ~= "") and v1.group or translate("default")
 			end
 			o.cfgvalue = get_cfgvalue(v.id, "main_node")
 			o.write = get_write(v.id, "main_node")
-
-			if (has_singbox and has_xray) or (v.type == "sing-box" and not has_singbox) or (v.type == "Xray" and not has_xray) then
-				type:depends("tcp_node", v.id)
-			else
-				type:depends("tcp_node", "__hide") --不存在的依赖，即始终隐藏
-			end
 
 			m.uci:foreach(appname, "shunt_rules", function(e)
 				local id = e[".name"]
@@ -192,6 +201,8 @@ if (has_singbox or has_xray) and #nodes_table > 0 then
 					o:value("_default", translate("Default"))
 					o:value("_direct", translate("Direct Connection"))
 					o:value("_blackhole", translate("Blackhole"))
+					o.template = appname .. "/cbi/nodes_listvalue"
+					o.group = {"","","",""}
 
 					local pt = s:taboption("Main", ListValue, vid .. "-".. id .. "_proxy_tag", string.format('* <a style="color:red">%s</a>', e.remarks .. " " .. translate("Preproxy")))
 					pt.cfgvalue = get_cfgvalue(v.id, id .. "_proxy_tag")
@@ -201,18 +212,23 @@ if (has_singbox or has_xray) and #nodes_table > 0 then
 					pt:value("main", translate("Preproxy Node"))
 					for k1, v1 in pairs(socks_list) do
 						o:value(v1.id, v1.remark)
+						o.group[#o.group+1] = (v1.group and v1.group ~= "") and v1.group or translate("default")
 					end
 					for k1, v1 in pairs(balancing_list) do
 						o:value(v1.id, v1.remark)
+						o.group[#o.group+1] = (v1.group and v1.group ~= "") and v1.group or translate("default")
 					end
 					for k1, v1 in pairs(urltest_list) do
 						o:value(v1.id, v1.remark)
+						o.group[#o.group+1] = (v1.group and v1.group ~= "") and v1.group or translate("default")
 					end
 					for k1, v1 in pairs(iface_list) do
 						o:value(v1.id, v1.remark)
+						o.group[#o.group+1] = (v1.group and v1.group ~= "") and v1.group or translate("default")
 					end
 					for k1, v1 in pairs(normal_list) do
 						o:value(v1.id, v1.remark)
+						o.group[#o.group+1] = (v1.group and v1.group ~= "") and v1.group or translate("default")
 						pt:depends({ [node_option] = v1.id, [vid .. "-preproxy_enabled"] = "1" })
 					end
 				end
@@ -226,20 +242,27 @@ if (has_singbox or has_xray) and #nodes_table > 0 then
 			o:depends("tcp_node", v.id)
 			o:value("_direct", translate("Direct Connection"))
 			o:value("_blackhole", translate("Blackhole"))
+			o.template = appname .. "/cbi/nodes_listvalue"
+			o.group = {"",""}
 			for k1, v1 in pairs(socks_list) do
 				o:value(v1.id, v1.remark)
+				o.group[#o.group+1] = (v1.group and v1.group ~= "") and v1.group or translate("default")
 			end
 			for k1, v1 in pairs(balancing_list) do
 				o:value(v1.id, v1.remark)
+				o.group[#o.group+1] = (v1.group and v1.group ~= "") and v1.group or translate("default")
 			end
 			for k1, v1 in pairs(urltest_list) do
 				o:value(v1.id, v1.remark)
+				o.group[#o.group+1] = (v1.group and v1.group ~= "") and v1.group or translate("default")
 			end
 			for k1, v1 in pairs(iface_list) do
 				o:value(v1.id, v1.remark)
+				o.group[#o.group+1] = (v1.group and v1.group ~= "") and v1.group or translate("default")
 			end
 			for k1, v1 in pairs(normal_list) do
 				o:value(v1.id, v1.remark)
+				o.group[#o.group+1] = (v1.group and v1.group ~= "") and v1.group or translate("default")
 			end
 
 			local id = "default_proxy_tag"
@@ -286,6 +309,18 @@ o = s:taboption("Main", Flag, "tcp_node_socks_bind_local", translate("TCP Node")
 o.default = "1"
 o:depends({ tcp_node = "", ["!reverse"] = true })
 
+-- Node → DNS Depends Settings
+o = s:taboption("Main", DummyValue, "_node_sel_shunt", "")
+o.template = appname .. "/cbi/hidevalue"
+o.value = "1"
+o:depends({ tcp_node = "__always__" })
+
+o = s:taboption("Main", DummyValue, "_node_sel_other", "")
+o.template = appname .. "/cbi/hidevalue"
+o.value = "1"
+o:depends({ _node_sel_shunt = "1",  ['!reverse'] = true })
+
+-- [[ DNS Settings ]]--
 s:tab("DNS", translate("DNS"))
 
 o = s:taboption("DNS", ListValue, "dns_shunt", "DNS " .. translate("Shunt"))
@@ -322,11 +357,38 @@ o:depends("direct_dns_mode", "tcp")
 o = s:taboption("DNS", Flag, "filter_proxy_ipv6", translate("Filter Proxy Host IPv6"), translate("Experimental feature."))
 o.default = "0"
 
+-- TCP分流时dns过滤模式保存逻辑
+function dns_mode_save(section)
+	for k, v in pairs(shunt_list) do
+		local f = s.fields[v.id .. "-type"]
+		if f then
+			local type_val = f:formvalue(section)
+			if type_val and (type_val == "Xray" or type_val == "sing-box") then
+				local dns_shunt_val = s.fields["dns_shunt"]:formvalue(section)
+				local dns_mode_val = (dns_shunt_val ~= "smartdns") and "dns_mode" or "smartdns_dns_mode"
+				local current_val = m:get(section, dns_mode_val) or ""
+				local new_val = (type_val == "Xray") and "xray" or "sing-box"
+
+				if current_val ~= new_val then
+					m:set(section, dns_mode_val, new_val)
+					m:del(section, (dns_mode_val == "dns_mode") and "smartdns_dns_mode" or "dns_mode")
+				end
+
+				local dns_field = s.fields[type_val == "Xray" and "xray_dns_mode" or "singbox_dns_mode"]
+				local v2ray_dns_mode = dns_field and dns_field:formvalue(section)
+				if v2ray_dns_mode and m:get(section, "v2ray_dns_mode") ~= v2ray_dns_mode then
+					m:set(section, "v2ray_dns_mode", v2ray_dns_mode)
+				end
+
+				break
+			end
+		end
+	end
+end
+
 ---- DNS Forward Mode
-o = s:taboption("DNS", ListValue, "dns_mode", translate("Filter Mode"),
-			 "<font color='red'>" .. translate(
-				 "If the node uses Xray/Sing-Box shunt, select the matching filter mode (Xray/Sing-Box).") ..
-				 "</font>")
+o = s:taboption("DNS", ListValue, "dns_mode", translate("Filter Mode"))
+o.default = "tcp"
 o:value("udp", translatef("Requery DNS By %s", "UDP"))
 o:value("tcp", translatef("Requery DNS By %s", "TCP"))
 if api.is_finded("dns2socks") then
@@ -338,16 +400,19 @@ end
 if has_xray then
 	o:value("xray", "Xray")
 end
-if api.is_finded("smartdns") then
-	o:depends({ dns_shunt = "smartdns",  ['!reverse'] = true })
+o:depends({ dns_shunt = "chinadns-ng", _node_sel_other = "1" })
+o:depends({ dns_shunt = "dnsmasq", _node_sel_other = "1" })
+o.remove = function(self, section)
+	local f = s.fields["smartdns_dns_mode"]
+	if f and f:formvalue(section) then
+		return m:del(section, self.option)
+	end
+	dns_mode_save(section)
 end
 
 ---- SmartDNS Forward Mode
 if api.is_finded("smartdns") then
-	o = s:taboption("DNS", ListValue, "smartdns_dns_mode", translate("Filter Mode"),
-				 "<font color='red'>" .. translate(
-					 "If the node uses Xray/Sing-Box shunt, select the matching filter mode (Xray/Sing-Box).") ..
-					 "</font>")
+	o = s:taboption("DNS", ListValue, "smartdns_dns_mode", translate("Filter Mode"))
 	o:value("socks", "Socks")
 	if has_singbox then
 		o:value("sing-box", "Sing-Box")
@@ -355,7 +420,14 @@ if api.is_finded("smartdns") then
 	if has_xray then
 		o:value("xray", "Xray")
 	end
-	o:depends({ dns_shunt = "smartdns" })
+	o:depends({ dns_shunt = "smartdns", _node_sel_other = "1" })
+	o.remove = function(self, section)
+		local f = s.fields["dns_mode"]
+		if f and f:formvalue(section) then
+			return m:del(section, self.option)
+		end
+		dns_mode_save(section)
+	end
 
 	o = s:taboption("DNS", DynamicList, "smartdns_remote_dns", translate("Remote DNS"))
 	o:value("tcp://1.1.1.1")
@@ -400,7 +472,9 @@ if api.is_finded("smartdns") then
 	end
 end
 
-o = s:taboption("DNS", ListValue, "xray_dns_mode", translate("Request protocol"))
+o = s:taboption("DNS", ListValue, "xray_dns_mode", translate("Remote DNS") .. " " .. translate("Request protocol"))
+o.default = "tcp"
+o:value("udp", "UDP")
 o:value("tcp", "TCP")
 o:value("tcp+doh", "TCP + DoH (" .. translate("A/AAAA type") .. ")")
 o:depends("dns_mode", "xray")
@@ -414,7 +488,9 @@ o.write = function(self, section, value)
 	end
 end
 
-o = s:taboption("DNS", ListValue, "singbox_dns_mode", translate("Request protocol"))
+o = s:taboption("DNS", ListValue, "singbox_dns_mode", translate("Remote DNS") .. " " .. translate("Request protocol"))
+o.default = "tcp"
+o:value("udp", "UDP")
 o:value("tcp", "TCP")
 o:value("doh", "DoH")
 o:depends("dns_mode", "sing-box")
@@ -454,8 +530,10 @@ o:value("208.67.222.222", "208.67.222.222 (OpenDNS)")
 o:depends({dns_mode = "dns2socks"})
 o:depends({dns_mode = "tcp"})
 o:depends({dns_mode = "udp"})
+o:depends({xray_dns_mode = "udp"})
 o:depends({xray_dns_mode = "tcp"})
 o:depends({xray_dns_mode = "tcp+doh"})
+o:depends({singbox_dns_mode = "udp"})
 o:depends({singbox_dns_mode = "tcp"})
 
 ---- DoH
@@ -482,6 +560,7 @@ o.datatype = "ipaddr"
 o:depends({dns_mode = "sing-box"})
 o:depends({dns_mode = "xray"})
 o:depends("dns_shunt", "smartdns")
+o:depends("_node_sel_shunt", "1")
 
 o = s:taboption("DNS", Flag, "remote_fakedns", "FakeDNS", translate("Use FakeDNS work in the shunt domain that proxy."))
 o.default = "0"
@@ -491,9 +570,13 @@ o:depends({smartdns_dns_mode = "sing-box", dns_shunt = "smartdns"})
 o:depends({dns_mode = "xray", dns_shunt = "dnsmasq"})
 o:depends({dns_mode = "xray", dns_shunt = "chinadns-ng"})
 o:depends({smartdns_dns_mode = "xray", dns_shunt = "smartdns"})
+o:depends("_node_sel_shunt", "1")
 o.validate = function(self, value, t)
 	if value and value == "1" then
-		local _dns_mode = s.fields["dns_mode"]:formvalue(t) or s.fields["smartdns_dns_mode"]:formvalue(t)
+		local _dns_mode = s.fields["dns_mode"]:formvalue(t)
+		if not _dns_mode and s.fields["smartdns_dns_mode"] then
+			_dns_mode = s.fields["smartdns_dns_mode"]:formvalue(t)
+		end
 		local _tcp_node = s.fields["tcp_node"]:formvalue(t)
 		if _dns_mode and _tcp_node then
 			if m:get(_tcp_node, "type"):lower() ~= _dns_mode then
@@ -544,16 +627,18 @@ o = s:taboption("DNS", Flag, "dns_redirect", translate("DNS Redirect"), translat
 o.default = "1"
 o.rmempty = false
 
-if (m:get("@global_forwarding[0]", "use_nft") or "0") == "1" then
-	o = s:taboption("DNS", Button, "clear_ipset", translate("Clear NFTSET"), translate("Try this feature if the rule modification does not take effect."))
-else
-	o = s:taboption("DNS", Button, "clear_ipset", translate("Clear IPSET"), translate("Try this feature if the rule modification does not take effect."))
-end
-o.inputstyle = "remove"
-function o.write(e, e)
-	m:set("@global[0]", "flush_set", "1")
-	api.uci_save(m.uci, appname, true, true)
-	luci.http.redirect(api.url("log"))
+local use_nft = m:get("@global_forwarding[0]", "use_nft") == "1"
+local set_title = api.i18n.translate(use_nft and "Clear NFTSET on Reboot" or "Clear IPSET on Reboot")
+o = s:taboption("DNS", Flag, "flush_set_on_reboot", set_title, translate("Clear IPSET/NFTSET on service reboot. This may increase reboot time."))
+o.default = "0"
+
+set_title = api.i18n.translate(use_nft and "Clear NFTSET" or "Clear IPSET")
+o = s:taboption("DNS", DummyValue, "clear_ipset", set_title, translate("Try this feature if the rule modification does not take effect."))
+o.rawhtml = true
+function o.cfgvalue(self, section)
+	return string.format(
+		[[<button type="button" class="cbi-button cbi-button-remove" onclick="location.href='%s'">%s</button>]],
+		api.url("flush_set") .. "?redirect=1&reload=1", set_title)
 end
 
 s:tab("Proxy", translate("Mode"))
@@ -678,6 +763,52 @@ function s2.create(e, t)
 	TypedSection.create(e, t)
 	luci.http.redirect(e.extedit:format(t))
 end
+function s2.remove(e, t)
+	local socks = "Socks_" .. t
+	local new_node = ""
+	local node0 = m:get("@nodes[0]") or nil
+	if node0 then
+		new_node = node0[".name"]
+	end
+	if (m:get("@global[0]", "tcp_node") or "") == socks then
+		m:set('@global[0]', "tcp_node", new_node)
+	end
+	if (m:get("@global[0]", "udp_node") or "") == socks then
+		m:set('@global[0]', "udp_node", new_node)
+	end
+	m.uci:foreach(appname, "acl_rule", function(s)
+		if s["tcp_node"] and s["tcp_node"] == socks then
+			m:set(s[".name"], "tcp_node", "default")
+		end
+		if s["udp_node"] and s["udp_node"] == socks then
+			m:set(s[".name"], "udp_node", "default")
+		end
+	end)
+	m.uci:foreach(appname, "nodes", function(s)
+		local list_name = s["urltest_node"] and "urltest_node" or (s["balancing_node"] and "balancing_node")
+		if list_name then
+			local nodes = m.uci:get_list(appname, s[".name"], list_name)
+			if nodes then
+				local changed = false
+				local new_nodes = {}
+				for _, node in ipairs(nodes) do
+					if node ~= socks then
+						table.insert(new_nodes, node)
+					else
+						changed = true
+					end
+				end
+				if changed then
+					m.uci:set_list(appname, s[".name"], list_name, new_nodes)
+				end
+			end
+		end
+		if s["fallback_node"] == socks then
+			m:del(s[".name"], "fallback_node")
+		end
+	end)
+	TypedSection.remove(e, t)
+end
 
 o = s2:option(DummyValue, "status", translate("Status"))
 o.rawhtml = true
@@ -691,6 +822,8 @@ o.default = 1
 o.rmempty = false
 
 o = s2:option(ListValue, "node", translate("Socks Node"))
+o.template = appname .. "/cbi/nodes_listvalue"
+o.group = {}
 
 o = s2:option(DummyValue, "now_node", translate("Current Node"))
 o.rawhtml = true
@@ -723,15 +856,44 @@ if has_singbox or has_xray then
 	o.datatype = "port"
 end
 
+local tcp = s.fields["tcp_node"]
+local udp = s.fields["udp_node"]
+local socks = s2.fields["node"]
+for k, v in pairs(socks_list) do
+	tcp:value(v.id, v["remark"])
+	tcp.group[#tcp.group+1] = (v.group and v.group ~= "") and v.group or translate("default")
+	udp:value(v.id, v["remark"])
+	udp.group[#udp.group+1] = (v.group and v.group ~= "") and v.group or translate("default")
+end
 for k, v in pairs(nodes_table) do
-	s.fields["tcp_node"]:value(v.id, v["remark"])
-	s.fields["udp_node"]:value(v.id, v["remark"])
-	if v.type == "Socks" then
+	if #normal_list == 0 then
+		break
+	end
+	if v.protocol == "_shunt" then
 		if has_singbox or has_xray then
-			s2.fields["node"]:value(v.id, v["remark"])
+			tcp:value(v.id, v["remark"])
+			tcp.group[#tcp.group+1] = (v.group and v.group ~= "") and v.group or translate("default")
+			udp:value(v.id, v["remark"])
+			udp.group[#udp.group+1] = (v.group and v.group ~= "") and v.group or translate("default")
+
+			s.fields["_node_sel_shunt"]:depends({ tcp_node = v.id })
+			s.fields["xray_dns_mode"]:depends({ [v.id .. "-type"] = "Xray", _node_sel_shunt = "1" })
+			s.fields["singbox_dns_mode"]:depends({ [v.id .. "-type"] = "sing-box", _node_sel_shunt = "1" })
 		end
 	else
-		s2.fields["node"]:value(v.id, v["remark"])
+		tcp:value(v.id, v["remark"])
+		tcp.group[#tcp.group+1] = (v.group and v.group ~= "") and v.group or translate("default")
+		udp:value(v.id, v["remark"])
+		udp.group[#udp.group+1] = (v.group and v.group ~= "") and v.group or translate("default")
+	end
+	if v.type == "Socks" then
+		if has_singbox or has_xray then
+			socks:value(v.id, v["remark"])
+			socks.group[#socks.group+1] = (v.group and v.group ~= "") and v.group or translate("default")
+		end
+	else
+		socks:value(v.id, v["remark"])
+		socks.group[#socks.group+1] = (v.group and v.group ~= "") and v.group or translate("default")
 	end
 end
 

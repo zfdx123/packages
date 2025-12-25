@@ -127,9 +127,6 @@ msgstr "您只需要在SmartDNS配置好国内DNS分组，并设置重定向或�
 msgid "Filter Mode"
 msgstr "过滤模式"
 
-msgid "If the node uses Xray/Sing-Box shunt, select the matching filter mode (Xray/Sing-Box)."
-msgstr "当节点使用 Xray/Sing-Box 分流时，过滤模式需对应选择 Xray/Sing-Box 。"
-
 msgid "A/AAAA type"
 msgstr "A/AAAA 类型"
 
@@ -228,6 +225,15 @@ msgstr "DNS 重定向"
 
 msgid "Force special DNS server to need proxy devices."
 msgstr "强制需要代理的设备使用专用 DNS 服务器。"
+
+msgid "Clear IPSET on Reboot"
+msgstr "重启清空 IPSET"
+
+msgid "Clear NFTSET on Reboot"
+msgstr "重启清空 NFTSET"
+
+msgid "Clear IPSET/NFTSET on service reboot. This may increase reboot time."
+msgstr "重启服务时清空 IPSET/NFTSET，可能会延长重启时间。"
 
 msgid "Clear IPSET"
 msgstr "清空 IPSET"
@@ -382,6 +388,9 @@ msgstr "置顶"
 msgid "Select"
 msgstr "选择"
 
+msgid "Selected:"
+msgstr "已选："
+
 msgid "DeSelect"
 msgstr "反选"
 
@@ -414,6 +423,15 @@ msgstr "节点备注"
 
 msgid "Add Mode"
 msgstr "添加方式"
+
+msgid "Save Order"
+msgstr "保存当前顺序"
+
+msgid "Saved current page order successfully."
+msgstr "保存当前页面顺序成功。"
+
+msgid "Drag to reorder"
+msgstr "拖动以重排"
 
 msgid "Type"
 msgstr "类型"
@@ -1103,10 +1121,16 @@ msgid "Are you sure you want to delete all subscribed nodes?"
 msgstr "您确定要删除所有已订阅的节点吗？"
 
 msgid "Manual subscription All"
-msgstr "手动订阅全部"
+msgstr "手动订阅全部链接"
 
 msgid "This remark already exists, please change a new remark."
 msgstr "此备注已存在，请改一个新的备注。"
+
+msgid "Remark cannot be empty."
+msgstr "备注不能为空。"
+
+msgid "URL cannot be empty."
+msgstr "网址不能为空。"
 
 msgid "Filter keyword Mode"
 msgstr "过滤关键字模式"
@@ -1711,6 +1735,12 @@ msgstr "协议参数。如果启用会随机浪费流量。"
 msgid "Protocol parameter. Enable length block encryption."
 msgstr "协议参数。启用长度块加密。"
 
+msgid "TLS Chain Fingerprint (SHA256)"
+msgstr "TLS 证书链指纹（SHA256）"
+
+msgid "Once set, connects only when the server’s chain fingerprint matches."
+msgstr "设置后，仅在服务器证书链指纹匹配时连接。"
+
 msgid "ECH Config"
 msgstr "ECH 配置"
 
@@ -1977,3 +2007,18 @@ msgstr "如留空，则使用随机版本。"
 
 msgid "The configured type also applies to the core specified when manually importing nodes."
 msgstr "配置的类型同样适用于手动导入节点时所指定的核心程序。"
+
+msgid "Group Name"
+msgstr "分组名"
+
+msgid "Reassign Group"
+msgstr "调整分组"
+
+msgid "Reassign Node Group"
+msgstr "调整节点分组"
+
+msgid "Currently using %s node"
+msgstr "当前使用的 %s 节点"
+
+msgid "Search nodes..."
+msgstr "搜索节点…"

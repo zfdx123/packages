@@ -13,6 +13,8 @@ function m.commit_handler(self)
 	self:del(arg[1], "md5")
 end
 
+m:append(Template(appname .. "/cbi/nodes_listvalue_com"))
+
 if api.is_js_luci() then
 	m.apply_on_parse = false
 	m.on_after_apply = function(self)
@@ -20,11 +22,10 @@ if api.is_js_luci() then
 		uci:commit(appname)
 		api.showMsg_Redirect(self.redirect, 3000)
 	end
-end
-
-m.render = function(self, ...)
-	Map.render(self, ...)
-	api.optimize_cbi_ui()
+	m.render = function(self, ...)
+		Map.render(self, ...)
+		api.optimize_cbi_ui()
+	end
 end
 
 local has_ss = api.is_finded("ss-redir")
@@ -77,7 +78,8 @@ for k, e in ipairs(api.get_valid_nodes()) do
 			remark = e["remark"],
 			type = e["type"],
 			add_mode = e["add_mode"],
-			chain_proxy = e["chain_proxy"]
+			chain_proxy = e["chain_proxy"],
+			group = e["group"]
 		}
 	end
 end
@@ -88,13 +90,41 @@ s.dynamic = false
 
 o = s:option(Value, "remark", translate("Subscribe Remark"))
 o.rmempty = false
+o.validate = function(self, value, section)
+	value = api.trim(value)
+	if value == "" then
+		return nil, translate("Remark cannot be empty.")
+	end
+	local duplicate = false
+	m.uci:foreach(appname, "subscribe_list", function(e)
+		if e[".name"] ~= section and e["remark"] and e["remark"]:lower() == value:lower() then
+			duplicate = true
+			return false
+		end
+	end)
+	if duplicate or value:lower() == "default" then
+		return nil, translate("This remark already exists, please change a new remark.")
+	end
+	return value
+end
+o.write = function(self, section, value)
+	local old = m:get(section, self.option) or ""
+	if old ~= value then
+		m.uci:foreach(appname, "nodes", function(e)
+			if e["group"] and e["group"]:lower() == old:lower() then
+				m.uci:set(appname, e[".name"], "group", value)
+			end
+		end)
+	end
+	return Value.write(self, section, value)
+end
 
 o = s:option(TextValue, "url", translate("Subscribe URL"))
 o.rows = 5
 o.rmempty = false
 o.validate = function(self, value)
 	if not value or value == "" then
-		return nil, translate("URL cannot be empty")
+		return nil, translate("URL cannot be empty.")
 	end
 	return value:gsub("%s+", ""):gsub("%z", "")
 end
@@ -241,18 +271,24 @@ descrStr = descrStr .. "The chained node must be the same type as your subscript
 descrStr = descrStr .. "You can only use manual or imported nodes as chained nodes."
 descrStr = translate(descrStr) .. "<br>" .. translate("Only support a layer of proxy.")
 
-o = s:option(ListValue, "preproxy_node", translate("Preproxy Node"))
-o:depends({ ["chain_proxy"] = "1" })
-o.description = descrStr
+o1 = s:option(ListValue, "preproxy_node", translate("Preproxy Node"))
+o1:depends({ ["chain_proxy"] = "1" })
+o1.description = descrStr
+o1.template = appname .. "/cbi/nodes_listvalue"
+o1.group = {}
 
-o = s:option(ListValue, "to_node", translate("Landing Node"))
-o:depends({ ["chain_proxy"] = "2" })
-o.description = descrStr
+o2 = s:option(ListValue, "to_node", translate("Landing Node"))
+o2:depends({ ["chain_proxy"] = "2" })
+o2.description = descrStr
+o2.template = appname .. "/cbi/nodes_listvalue"
+o2.group = {}
 
 for k, v in pairs(nodes_table) do
 	if (v.type == "Xray" or v.type == "sing-box") and (not v.chain_proxy or v.chain_proxy == "") and v.add_mode ~= "2" then
-		s.fields["preproxy_node"]:value(v.id, v.remark)
-		s.fields["to_node"]:value(v.id, v.remark)
+		o1:value(v.id, v.remark)
+		o1.group[#o1.group+1] = (v.group and v.group ~= "") and v.group or translate("default")
+		o2:value(v.id, v.remark)
+		o2.group[#o2.group+1] = (v.group and v.group ~= "") and v.group or translate("default")
 	end
 end
 
