@@ -43,16 +43,16 @@ jobs:
         cp -r src-sbwml/* .
         rm -rf src-sbwml
 
-    - name: Sync xiaorouji/openwrt-passwall-packages
+    - name: Sync Openwrt-Passwall/openwrt-passwall
       run: |
-        git clone --depth 1 --filter=blob:none https://github.com/xiaorouji/openwrt-passwall-packages src-passwall-pkg
+        git clone --depth 1 --filter=blob:none https://github.com/Openwrt-Passwall/openwrt-passwall-packages src-passwall-pkg
         rm -rf src-passwall-pkg/.github
         cp -r src-passwall-pkg/* .
         rm -rf src-passwall-pkg
 
-    - name: Sync xiaorouji/openwrt-passwall
+    - name: Sync Openwrt-Passwall/openwrt-passwall
       run: |
-        git clone --depth 1 --filter=blob:none --sparse https://github.com/xiaorouji/openwrt-passwall src-passwall
+        git clone --depth 1 --filter=blob:none --sparse https://github.com/Openwrt-Passwall/openwrt-passwall src-passwall
         cd src-passwall
         git sparse-checkout set luci-app-passwall
         cd ..
