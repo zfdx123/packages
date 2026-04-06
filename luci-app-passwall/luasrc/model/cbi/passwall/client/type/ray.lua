@@ -25,7 +25,6 @@ local function _n(name)
 	return option_prefix .. name
 end
 
-local formvalue_key = "cbid." .. appname .. "." .. arg[1] .. "."
 local formvalue_proto = luci.http.formvalue(formvalue_key .. _n("protocol"))
 
 if formvalue_proto then s.val["protocol"] = formvalue_proto end
@@ -153,7 +152,8 @@ if load_balancing_options then -- [[ Load balancing Start ]]
 	local descrStr = "Example: <code>^A && B && !C && D$</code><br>"
 	descrStr = descrStr .. "This means the node remark must start with A (^), include B, exclude C (!), and end with D ($).<br>"
 	descrStr = descrStr .. "Conditions are joined by <code>&&</code>, and their order does not affect the result."
-	o.description = translate(descrStr)
+	o.description = translate(descrStr) .. string.format("<br><font color='red'>%s</font>",
+			translate("Keep the match scope small. Too many nodes can impact router performance."))
 
 	o = s:option(ListValue, _n("balancingStrategy"), translate("Balancing Strategy"))
 	o:depends({ [_n("protocol")] = "_balancing" })
@@ -250,6 +250,11 @@ if #protocols > 0 then
 	end
 end
 
+o = s:option(Value, _n("uuid"), translate("ID"))
+o.password = true
+o:depends({ [_n("protocol")] = "vmess" })
+o:depends({ [_n("protocol")] = "vless" })
+
 o = s:option(Value, _n("username"), translate("Username"))
 o:depends({ [_n("protocol")] = "http" })
 o:depends({ [_n("protocol")] = "socks" })
@@ -288,15 +293,11 @@ o:depends({ [_n("protocol")] = "shadowsocks", [_n("ss_method")] = "xchacha20-pol
 o = s:option(Flag, _n("uot"), translate("UDP over TCP"))
 o:depends({ [_n("protocol")] = "shadowsocks" })
 
-o = s:option(Value, _n("uuid"), translate("ID"))
-o.password = true
-o:depends({ [_n("protocol")] = "vmess" })
-o:depends({ [_n("protocol")] = "vless" })
-
 o = s:option(ListValue, _n("flow"), translate("flow"))
 o.default = ""
 o:value("", translate("Disable"))
 o:value("xtls-rprx-vision")
+o:value("xtls-rprx-vision-udp443")
 o:depends({ [_n("protocol")] = "vless" })
 
 ---- [[hysteria2]]
@@ -327,7 +328,10 @@ o = s:option(Value, _n("hysteria2_auth_password"), translate("Auth Password"))
 o.password = true
 o:depends({ [_n("protocol")] = "hysteria2"})
 
-o = s:option(Value, _n("hysteria2_idle_timeout"), translate("Idle Timeout"), translate("Example:") .. "30s (4s-120s)")
+o = s:option(Value, _n("hysteria2_idle_timeout"), translate("Idle Timeout"), translate("Example:") .. "30s (4s~120s)")
+o:depends({ [_n("protocol")] = "hysteria2"})
+
+o = s:option(Value, _n("hysteria2_keep_alive_period"), translate("QUIC KeepAlive interval"), translate("Example:") .. "10s (2s~60s)")
 o:depends({ [_n("protocol")] = "hysteria2"})
 
 o = s:option(Flag, _n("hysteria2_disable_mtu_discovery"), translate("Disable MTU detection"))
@@ -369,7 +373,7 @@ o:depends({ [_n("protocol")] = "hysteria2" })
 -- o:value("1.3")
 -- o:depends({ [_n("tls")] = true })
 
-o = s:option(Value, _n("tls_serverName"), translate("Domain"))
+o = s:option(Value, _n("tls_serverName"), "SNI " .. translate("Domain"))
 o:depends({ [_n("tls")] = true })
 o:depends({ [_n("protocol")] = "hysteria2" })
 
@@ -405,7 +409,7 @@ o.validate = function(self, value)
 end
 
 o = s:option(ListValue, _n("ech_ForceQuery"), translate("ECH Query Policy"), translate("Controls the policy used when performing DNS queries for ECH configuration."))
-o.default = "none"
+o.default = "full"
 o:value("none")
 o:value("half")
 o:value("full")
@@ -693,10 +697,12 @@ o:depends({ [_n("protocol")] = "shadowsocks" })
 o:depends({ [_n("protocol")] = "wireguard" })
 o:depends({ [_n("protocol")] = "hysteria2" })
 
-o = s:option(TextValue, _n("finalmask"), "　", translate("An FinalMaskObject in JSON format, used for sharing."))
+o = s:option(TextValue, _n("finalmask"), "　")
 o:depends({ [_n("use_finalmask")] = true })
 o.rows = 10
 o.wrap = "off"
+o.description = translate("An FinalMaskObject in JSON format, used for sharing.") .. "<br>" ..
+		translate("Custom finalmask overrides mkcp, hysteria2, fragment, noise, and related settings.")
 o.custom_cfgvalue = function(self, section, value)
 	local raw = m:get(section, "finalmask")
 	if raw then
@@ -728,52 +734,50 @@ o.datatype = "uinteger"
 o.placeholder = 0
 o:depends({ [_n("protocol")] = "vless" })
 
-o = s:option(ListValue, _n("chain_proxy"), translate("Chain Proxy"))
-o:value("", translate("Close(Not use)"))
-o:value("1", translate("Preproxy Node"))
-o:value("2", translate("Landing Node"))
 for i, v in ipairs(s.fields[_n("protocol")].keylist) do
-	if not v:find("^_") then
-		o:depends({ [_n("protocol")] = v })
+	if not v:find("^_") and v ~= "hysteria2" then
+		s.fields[_n("tcp_fast_open")]:depends({ [_n("protocol")] = v })
+		s.fields[_n("tcpMptcp")]:depends({ [_n("protocol")] = v })
 	end
 end
+end
+-- [[ Normal single node End ]]
 
-o1 = s:option(ListValue, _n("preproxy_node"), translate("Preproxy Node"), translate("Only support a layer of proxy."))
-o1:depends({ [_n("chain_proxy")] = "1" })
-o1.template = appname .. "/cbi/nodes_listvalue"
-o1.group = {}
+if not load_shunt_options then
+	o = s:option(ListValue, _n("chain_proxy"), translate("Chain Proxy"))
+	o:value("", translate("Close(Not use)"))
+	if not (load_iface_options or load_balancing_options) then
+		-- Special node cannot be use pre-proxy.
+		o:value("1", translate("Preproxy Node"))
+	end
+	o:value("2", translate("Landing Node"))
 
-o2 = s:option(ListValue, _n("to_node"), translate("Landing Node"), translate("Only support a layer of proxy."))
-o2:depends({ [_n("chain_proxy")] = "2" })
-o2.template = appname .. "/cbi/nodes_listvalue"
-o2.group = {}
+	o1 = s:option(ListValue, _n("preproxy_node"), translate("Preproxy Node"), translate("Only support a layer of proxy."))
+	o1:depends({ [_n("chain_proxy")] = "1" })
+	o1.template = appname .. "/cbi/nodes_listvalue"
+	o1.group = {}
 
-for k1, v1 in pairs(node_list) do
-	if k1 ~= "shunt_list" and k1 ~= "iface_list" then
-		for i, v in ipairs(v1) do
-			if v.id ~= arg[1] then
-				o1:value(v.id, v.remark)
-				o1.group[#o1.group+1] = (v.group and v.group ~= "") and v.group or translate("default")
-				if k1 == "normal_list" then
-					-- Landing Node not support use special node.
-					o2:value(v.id, v.remark)
-					o2.group[#o2.group+1] = (v.group and v.group ~= "") and v.group or translate("default")
+	o2 = s:option(ListValue, _n("to_node"), translate("Landing Node"), translate("Only support a layer of proxy."))
+	o2:depends({ [_n("chain_proxy")] = "2" })
+	o2.template = appname .. "/cbi/nodes_listvalue"
+	o2.group = {}
+
+	for k1, v1 in pairs(node_list) do
+		if k1 ~= "shunt_list" and k1 ~= "iface_list" then
+			for i, v in ipairs(v1) do
+				if v.id ~= arg[1] then
+					o1:value(v.id, v.remark)
+					o1.group[#o1.group+1] = (v.group and v.group ~= "") and v.group or translate("default")
+					if k1 == "normal_list" then
+						-- Landing Node not support use special node.
+						o2:value(v.id, v.remark)
+						o2.group[#o2.group+1] = (v.group and v.group ~= "") and v.group or translate("default")
+					end
 				end
 			end
 		end
 	end
 end
-
-for i, v in ipairs(s.fields[_n("protocol")].keylist) do
-	if not v:find("^_") and v ~= "hysteria2" then
-		s.fields[_n("tcp_fast_open")]:depends({ [_n("protocol")] = v })
-		s.fields[_n("tcpMptcp")]:depends({ [_n("protocol")] = v })
-		s.fields[_n("chain_proxy")]:depends({ [_n("protocol")] = v })
-	end
-end
-
-end
--- [[ Normal single node End ]]
 
 api.luci_types(arg[1], m, s, type_name, option_prefix)
 
