@@ -17,6 +17,8 @@ UTIL_TROJAN=$LUA_UTIL_PATH/util_trojan.lua
 UTIL_NAIVE=$LUA_UTIL_PATH/util_naiveproxy.lua
 UTIL_HYSTERIA2=$LUA_UTIL_PATH/util_hysteria2.lua
 UTIL_TUIC=$LUA_UTIL_PATH/util_tuic.lua
+SINGBOX_BIN=$(first_type $(config_t_get global_app sing_box_file) sing-box)
+XRAY_BIN=$(first_type $(config_t_get global_app xray_file) xray)
 
 check_run_environment() {
 	local prefer_nft=$(config_t_get global_forwarding prefer_nft 1)
@@ -102,11 +104,8 @@ run_singbox() {
 	local loglevel log_file config_file server_host server_port no_run
 	eval_set_val $@
 	[ -z "$type" ] && {
-		local type=$(echo $(config_n_get $node type) | tr 'A-Z' 'a-z')
-		if [ "$type" != "sing-box" ]; then
-			bin=$(first_type $(config_t_get global_app sing_box_file) sing-box)
-			[ -n "$bin" ] && type="sing-box"
-		fi
+		type=$(echo $(config_n_get $node type) | tr 'A-Z' 'a-z')
+		[ "$type" != "sing-box" ] && [ -n "$SINGBOX_BIN" ] && type="sing-box"
 	}
 	[ -z "$type" ] && return 1
 	[ -n "$log_file" ] || local log_file="/dev/null"
@@ -187,7 +186,18 @@ run_singbox() {
 	[ -n "$no_run" ] && json_add_string "no_run" "1"
 	local _json_arg="$(json_dump)"
 	lua $UTIL_SINGBOX gen_config "${_json_arg}" > $config_file
-	[ -n "$no_run" ] || ln_run "$(first_type $(config_t_get global_app sing_box_file) sing-box)" "sing-box" $log_file run -c "$config_file"
+	[ -n "$no_run" ] && return
+
+	local test_log_file=$log_file
+	[ "$test_log_file" = "/dev/null" ] && test_log_file="${TMP_PATH}/${config_file##*/}_test.log"
+	$SINGBOX_BIN check -c "$config_file" > $test_log_file 2>&1; local status=$?
+	if [ "${status}" = 0 ]; then
+		ln_run "$SINGBOX_BIN" "sing-box" "${log_file}" run -c "$config_file"
+	else
+		echolog "Sing-box 配置文件 $config_file 校验有误，进程启动失败，错误信息："
+		cat ${test_log_file} >> ${LOG_FILE}
+	fi
+	[ "$test_log_file" != "$log_file" ] && rm -f "${test_log_file}"
 }
 
 run_xray() {
@@ -196,11 +206,8 @@ run_xray() {
 	local loglevel log_file config_file server_host server_port no_run
 	eval_set_val $@
 	[ -z "$type" ] && {
-		local type=$(echo $(config_n_get $node type) | tr 'A-Z' 'a-z')
-		if [ "$type" != "xray" ]; then
-			bin=$(first_type $(config_t_get global_app xray_file) xray)
-			[ -n "$bin" ] && type="xray"
-		fi
+		type=$(echo $(config_n_get $node type) | tr 'A-Z' 'a-z')
+		[ "$type" != "xray" ] && [ -n "$XRAY_BIN" ] && type="xray"
 	}
 	[ -z "$type" ] && return 1
 	json_init
@@ -279,7 +286,18 @@ run_xray() {
 	[ -n "$no_run" ] && json_add_string "no_run" "1"
 	local _json_arg="$(json_dump)"
 	lua $UTIL_XRAY gen_config "${_json_arg}" > $config_file
-	[ -n "$no_run" ] || ln_run "$(first_type $(config_t_get global_app ${type}_file) ${type})" ${type} $log_file run -c "$config_file"
+	[ -n "$no_run" ] && return
+
+	local test_log_file=$log_file
+	[ "$test_log_file" = "/dev/null" ] && test_log_file="${TMP_PATH}/${config_file##*/}_test.log"
+	$XRAY_BIN run -test -c "$config_file" > $test_log_file; local status=$?
+	if [ "${status}" = 0 ]; then
+		ln_run "$XRAY_BIN" "xray" "${log_file}" run -c "$config_file"
+	else
+		echolog "Xray 配置文件 $config_file 校验有误，进程启动失败，错误信息："
+		cat ${test_log_file} >> ${LOG_FILE}
+	fi
+	[ "$test_log_file" != "$log_file" ] && rm -f "${test_log_file}"
 }
 
 run_dns2socks() {
@@ -409,19 +427,20 @@ run_socks() {
 		json_add_string "server_port" "${_socks_port}"
 		json_add_string "server_username" "${_socks_username}"
 		json_add_string "server_password" "${_socks_password}"
-		local bin=$(first_type $(config_t_get global_app sing_box_file) sing-box)
-		if [ -n "$bin" ]; then
+		if [ -n "${SINGBOX_BIN}" ]; then
 			type="sing-box"
-			lua $UTIL_SINGBOX gen_proto_config "$(json_dump)" > $config_file
-			ln_run "$bin" ${type} $log_file run -c "$config_file"
-		else
-			bin=$(first_type $(config_t_get global_app xray_file) xray)
-			[ -n "$bin" ] && {
-				type="xray"
-				lua $UTIL_XRAY gen_proto_config "$(json_dump)" > $config_file
-				ln_run "$bin" ${type} $log_file run -c "$config_file"
-			}
+			local bin="${SINGBOX_BIN}"
+			local util="${UTIL_SINGBOX}"
+		elif [ -n "${XRAY_BIN}" ]; then
+			type="xray"
+			local bin="${XRAY_BIN}"
+			local util="${UTIL_XRAY}"
 		fi
+		[ -n "${bin}" ] && [ -n "${util}" ] && {
+			lua ${util} gen_proto_config "$(json_dump)" > $config_file
+			[ -n "$no_run" ] || ln_run "$bin" $type $log_file run -c "$config_file"
+		}
+		unset bin util
 	;;
 	sing-box)
 		[ "$http_port" != "0" ] && {
@@ -514,10 +533,7 @@ run_socks() {
 
 	# http to socks
 	[ -z "$http_flag" ] && [ "$http_port" != "0" ] && [ -n "$http_config_file" ] && [ "$type" != "sing-box" ] && [ "$type" != "xray" ] && [ "$type" != "socks" ] && {
-		local bin=$(first_type $(config_t_get global_app sing_box_file) sing-box)
-		json_add_null "node"
-		json_add_null "server_host"
-		json_add_null "server_port"
+		json_init
 		json_add_string "local_http_address" "$bind"
 		json_add_string "local_http_port" "$http_port"
 		json_add_string "server_proto" "socks"
@@ -525,17 +541,20 @@ run_socks() {
 		json_add_string "server_port" "$socks_port"
 		json_add_string "server_username" "$_username"
 		json_add_string "server_password" "$_password"
-		if [ -n "$bin" ]; then
+		if [ -n "${SINGBOX_BIN}" ]; then
 			type="sing-box"
-			lua $UTIL_SINGBOX gen_proto_config "$(json_dump)" > $http_config_file
-			[ -n "$no_run" ] || ln_run "$bin" ${type} /dev/null run -c "$http_config_file"
-		else
-			bin=$(first_type $(config_t_get global_app xray_file) xray)
-			[ -n "$bin" ] && type="xray"
-			[ -z "$type" ] && return 1
-			lua $UTIL_XRAY gen_proto_config "$(json_dump)" > $http_config_file
-			[ -n "$no_run" ] || ln_run "$bin" ${type} /dev/null run -c "$http_config_file"
+			local bin="${SINGBOX_BIN}"
+			local util="${UTIL_SINGBOX}"
+		elif [ -n "${XRAY_BIN}" ]; then
+			type="xray"
+			local bin="${XRAY_BIN}"
+			local util="${UTIL_XRAY}"
 		fi
+		[ -n "${bin}" ] && [ -n "${util}" ] && {
+			lua ${util} gen_proto_config "$(json_dump)" > $http_config_file
+			[ -n "$no_run" ] || ln_run "$bin" $type /dev/null run -c "$http_config_file"
+		}
+		unset bin util
 	}
 	unset http_flag
 
