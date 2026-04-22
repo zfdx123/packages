@@ -376,9 +376,11 @@ if api.compare_versions(os.date("%Y.%m.%d"), "<", "2026.6.1") then
 end
 
 if api.compare_versions(xray_version, ">=", "26.1.31") then
-	o = s:option(Value, _n("tls_CertSha"), translate("TLS Chain Fingerprint (SHA256)"), translate("Once set, connects only when the server’s chain fingerprint matches."))
+	o = s:option(Value, _n("tls_CertSha"), translate("TLS Chain Fingerprint (SHA256)"))
 	o:depends({ [_n("tls")] = true, [_n("reality")] = false })
 	o:depends({ [_n("protocol")] = "hysteria2" })
+	o.description = translate("Once set, connects only when the server’s chain fingerprint matches.") ..
+			string.format("<a href='javascript:void(0)' onclick='javascript:fetchCertSha256(this)'>%s</a>", "→ " .. translate("Fetch Manually"))
 
 	o = s:option(Value, _n("tls_CertByName"), translate("TLS Certificate Name (CertName)"), translate("TLS is used to verify the leaf certificate name."))
 	o:depends({ [_n("tls")] = true, [_n("reality")] = false })
@@ -513,33 +515,6 @@ o:depends({ [_n("transport")] = "mkcp" })
 o = s:option(Value, _n("mkcp_domain"), translate("Camouflage Domain"), translate("Use it together with the DNS disguised type. You can fill in any domain."))
 o:depends({ [_n("mkcp_guise")] = "dns" })
 
-o = s:option(Value, _n("mkcp_mtu"), translate("KCP MTU"))
-o.default = "1350"
-o:depends({ [_n("transport")] = "mkcp" })
-
-o = s:option(Value, _n("mkcp_tti"), translate("KCP TTI"))
-o.default = "20"
-o:depends({ [_n("transport")] = "mkcp" })
-
-o = s:option(Value, _n("mkcp_uplinkCapacity"), translate("KCP uplinkCapacity"))
-o.default = "5"
-o:depends({ [_n("transport")] = "mkcp" })
-
-o = s:option(Value, _n("mkcp_downlinkCapacity"), translate("KCP downlinkCapacity"))
-o.default = "20"
-o:depends({ [_n("transport")] = "mkcp" })
-
-o = s:option(Flag, _n("mkcp_congestion"), translate("KCP Congestion"))
-o:depends({ [_n("transport")] = "mkcp" })
-
-o = s:option(Value, _n("mkcp_readBufferSize"), translate("KCP readBufferSize"))
-o.default = "1"
-o:depends({ [_n("transport")] = "mkcp" })
-
-o = s:option(Value, _n("mkcp_writeBufferSize"), translate("KCP writeBufferSize"))
-o.default = "1"
-o:depends({ [_n("transport")] = "mkcp" })
-
 o = s:option(Value, _n("mkcp_seed"), translate("KCP Seed"))
 o:depends({ [_n("transport")] = "mkcp" })
 
@@ -652,6 +627,14 @@ end
 
 -- [[ User-Agent ]]--
 o = s:option(Value, _n("user_agent"), translate("User-Agent"))
+o.default = ""
+o:value("", translate("default"))
+o:value("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.131 Safari/537.36", "chrome")
+o:value("Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:90.0) Gecko/20100101 Firefox/90.0", "firefox")
+o:value("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Safari/605.1.15", "safari")
+o:value("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36 Edg/91.0.864.70", "edge")
+o:value("Go-http-client/1.1", "golang")
+o:value("curl/7.68.0", "curl")
 o:depends({ [_n("tcp_guise")] = "http" })
 o:depends({ [_n("transport")] = "ws" })
 o:depends({ [_n("transport")] = "httpupgrade" })
@@ -750,6 +733,8 @@ o:depends({ [_n("domain_resolver")] = "https" })
 o = s:option(ListValue, _n("domain_strategy"), translate("Domain Strategy"), translate("If is domain name, The requested domain name will be resolved to IP before connect."))
 o.default = ""
 o:value("", translate("Auto"))
+o:value("UseIPv4v6", translate("Prefer IPv4"))
+o:value("UseIPv6v4", translate("Prefer IPv6"))
 o:value("UseIPv4", translate("IPv4 Only"))
 o:value("UseIPv6", translate("IPv6 Only"))
 
