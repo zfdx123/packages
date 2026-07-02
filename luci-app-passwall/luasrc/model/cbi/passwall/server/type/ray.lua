@@ -1,14 +1,21 @@
 local m, s = ...
 
-local api = require "luci.passwall.api"
-
 if not api.finded_com("xray") then
 	return
 end
 
-local fs = api.fs
-
 local type_name = "Xray"
+
+-- [[ Xray ]]
+
+s.fields["type"]:value(type_name, "Xray")
+if not s.fields["type"].default then
+	s.fields["type"].default = type_name
+end
+
+if s.val["type"] and s.val["type"] ~= type_name then
+	return
+end
 
 local option_prefix = "xray_"
 
@@ -24,17 +31,13 @@ local header_type_list = {
 	"none", "srtp", "utp", "wechat-video", "dtls", "wireguard", "dns"
 }
 
--- [[ Xray ]]
-
-s.fields["type"]:value(type_name, "Xray")
-
 o = s:option(Flag, _n("custom"), translate("Use Custom Config"))
 
 o = s:option(ListValue, _n("protocol"), translate("Protocol"))
+o:value("socks", "Socks")
+o:value("http", "HTTP")
 o:value("vmess", "Vmess")
 o:value("vless", "VLESS")
-o:value("http", "HTTP")
-o:value("socks", "Socks")
 o:value("shadowsocks", "Shadowsocks")
 o:value("trojan", "Trojan")
 o:value("hysteria2", translate("Hysteria2"))
@@ -94,9 +97,6 @@ o.rewrite_option = "method"
 for a, t in ipairs(x_ss_method_list) do o:value(t) end
 o:depends({ [_n("protocol")] = "shadowsocks" })
 
-o = s:option(Flag, _n("iv_check"), translate("IV Check"))
-o:depends({ [_n("protocol")] = "shadowsocks" })
-
 o = s:option(ListValue, _n("ss_network"), translate("Transport"))
 o.default = "tcp,udp"
 o:value("tcp", "TCP")
@@ -124,9 +124,48 @@ o:value("xtls-rprx-vision")
 o:depends({ [_n("protocol")] = "vless" })
 
 ---- [[ hysteria2 ]]
+o = s:option(Flag, _n("hysteria2_realms"), translate("Realms"))
+o.default = "0"
+o:depends({ [_n("protocol")] = "hysteria2"})
+
+o = s:option(Value, _n("hysteria2_realm_url"), translate("Realm URL"), translate("Example:") .. "realm://public@realm.hy2.io/your-realm-name")
+o:depends({ [_n("hysteria2_realms")] = "1" })
+o.validate = function(self, value)
+	value = api.trim(value)
+	local realm = api.parse_realm_uri(value)
+	if realm then return value end
+	return nil, translate("Invalid Realm URL.")
+end
+
+o = s:option(DynamicList, _n("hysteria2_realm_stun"), translate("Realm STUN"))
+o.default = { "stun.sip.us:3478", "stun.nextcloud.com:3478", "global.stun.twilio.com:3478" }
+o:depends({ [_n("hysteria2_realms")] = "1" })
+
 o = s:option(Value, _n("hysteria2_auth_password"), translate("Auth Password"))
 o.password = true
 o:depends({ [_n("protocol")] = "hysteria2"})
+
+o = s:option(ListValue, _n("hysteria2_obfs_type"), translate("Obfs Type"))
+o:value("", translate("Disable"))
+o:value("salamander")
+o:value("gecko")
+o:depends({ [_n("protocol")] = "hysteria2" })
+
+o = s:option(Value, _n("hysteria2_obfs_password"), translate("Obfs Password"))
+o:depends({ [_n("hysteria2_obfs_type")] = "salamander" })
+o:depends({ [_n("hysteria2_obfs_type")] = "gecko" })
+
+o = s:option(Value, _n("hysteria2_obfs_MinPacketSize"), translate("Gecko Packet Size (min)"))
+o.datatype = "uinteger"
+o.placeholder = "512"
+o.default = "512"
+o:depends({ [_n("hysteria2_obfs_type")] = "gecko" })
+
+o = s:option(Value, _n("hysteria2_obfs_MaxPacketSize"), translate("Gecko Packet Size (max)"))
+o.datatype = "uinteger"
+o.placeholder = "1200"
+o.default = "1200"
+o:depends({ [_n("hysteria2_obfs_type")] = "gecko" })
 
 o = s:option(Flag, _n("hysteria2_ignore_client_bandwidth"), translate("Client BBR Flow Control"))
 o.default = 0
@@ -137,14 +176,6 @@ o:depends({ [_n("protocol")] = "hysteria2", [_n("hysteria2_ignore_client_bandwid
 
 o = s:option(Value, _n("hysteria2_down_mbps"), translate("Max download Mbps"))
 o:depends({ [_n("protocol")] = "hysteria2", [_n("hysteria2_ignore_client_bandwidth")] = false })
-
-o = s:option(ListValue, _n("hysteria2_obfs_type"), translate("Obfs Type"))
-o:value("", translate("Disable"))
-o:value("salamander")
-o:depends({ [_n("protocol")] = "hysteria2" })
-
-o = s:option(Value, _n("hysteria2_obfs_password"), translate("Obfs Password"))
-o:depends({ [_n("hysteria2_obfs_type")] = "salamander" })
 
 ---- [[ TLS ]]
 o = s:option(Flag, _n("tls"), translate("TLS"))
@@ -165,8 +196,6 @@ o.validate = function(self, value, t)
 end
 o:depends({ [_n("protocol")] = "vmess" })
 o:depends({ [_n("protocol")] = "vless" })
-o:depends({ [_n("protocol")] = "http" })
-o:depends({ [_n("protocol")] = "socks" })
 o:depends({ [_n("protocol")] = "shadowsocks" })
 o:depends({ [_n("protocol")] = "trojan" })
 
@@ -207,7 +236,8 @@ function o.write(self, section, value)
 end
 
 o = s:option(ListValue, _n("alpn"), translate("alpn"))
-o.default = "h2,http/1.1"
+o.default = "default"
+o:value("default", translate("Default"))
 o:value("h3")
 o:value("h2")
 o:value("h3,h2")
@@ -215,7 +245,6 @@ o:value("http/1.1")
 o:value("h2,http/1.1")
 o:value("h3,h2,http/1.1")
 o:depends({ [_n("tls")] = true, [_n("reality")] = false })
-o:depends({ [_n("protocol")] = "hysteria2"})
 
 o = s:option(Flag, _n("use_mldsa65Seed"), translate("ML-DSA-65"))
 o.default = "0"
@@ -291,7 +320,6 @@ o:value("httpupgrade", "HttpUpgrade")
 o:value("xhttp", "XHTTP")
 o:depends({ [_n("protocol")] = "vmess" })
 o:depends({ [_n("protocol")] = "vless" })
-o:depends({ [_n("protocol")] = "socks" })
 o:depends({ [_n("protocol")] = "shadowsocks" })
 o:depends({ [_n("protocol")] = "trojan" })
 
@@ -352,6 +380,11 @@ o:depends({ [_n("transport")] = "mkcp" })
 o = s:option(Value, _n("mkcp_domain"), translate("Camouflage Domain"), translate("Use it together with the DNS disguised type. You can fill in any domain."))
 o:depends({ [_n("mkcp_guise")] = "dns" })
 
+o = s:option(Value, _n("mkcp_mtu"), translate("KCP MTU"))
+o.datatype = "uinteger"
+o.default = 1350
+o:depends({ [_n("transport")] = "mkcp" })
+
 o = s:option(Value, _n("mkcp_seed"), translate("KCP Seed"))
 o:depends({ [_n("transport")] = "mkcp" })
 
@@ -367,7 +400,7 @@ o:depends({ [_n("custom")] = false, [_n("protocol")] = "vless" })
 o:depends({ [_n("custom")] = false, [_n("protocol")] = "trojan" })
 o:depends({ [_n("custom")] = false, [_n("protocol")] = "shadowsocks" })
 o:depends({ [_n("custom")] = false, [_n("protocol")] = "wireguard" })
-o:depends({ [_n("custom")] = false, [_n("protocol")] = "hysteria2" })
+o:depends({ [_n("custom")] = false, [_n("protocol")] = "hysteria2", [_n("hysteria2_realms")] = false })
 
 o = s:option(TextValue, _n("finalmask"), "FinalMask JSON")
 o:depends({ [_n("use_finalmask")] = true })
@@ -478,8 +511,11 @@ o:depends({ [_n("outbound_node")] = "_socks"})
 o:depends({ [_n("outbound_node")] = "_http"})
 
 o = s:option(Value, _n("outbound_node_iface"), translate("Interface"))
-o.default = "eth1"
 o:depends({ [_n("outbound_node")] = "_iface"})
+local netdev_list = api.get_network_devices()
+for _, d in ipairs(netdev_list) do
+	o:value(d.name, d.label)
+end
 
 o = s:option(TextValue, _n("custom_config"), translate("Custom Config"))
 o.rows = 10

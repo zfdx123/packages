@@ -5,15 +5,24 @@ local jsonc = api.jsonc
 
 function gen_config_server(node)
 	local config = {
-		listen = ":" .. node.port,
+		listen = (function()
+			if node.hysteria2_realms and node.hysteria2_realm_url then
+				local url = node.hysteria2_realm_url:gsub("/+$", "")
+				if node.port then
+					url = url .. (url:find("?") and "&lport=" or "?lport=") .. node.port
+				end
+				return url
+			end
+			return ":" .. (node.port or "0")
+		end)(),
 		tls = {
 			cert = node.tls_certificateFile,
 			key = node.tls_keyFile,
 		},
-		obfs = (node.hysteria2_obfs) and {
-			type = "salamander",
-			salamander = {
-				password = node.hysteria2_obfs
+		obfs = (node.hysteria2_obfs_type and node.hysteria2_obfs_password) and {
+			type = node.hysteria2_obfs_type,
+			[node.hysteria2_obfs_type] = {
+				password = node.hysteria2_obfs_password
 			}
 		} or nil,
 		auth = {
@@ -26,7 +35,22 @@ function gen_config_server(node)
 		} or nil,
 		ignoreClientBandwidth = (node.hysteria2_ignoreClientBandwidth == "1") and true or false,
 		disableUDP = (node.hysteria2_udp == "0") and true or false,
+		realm = (node.hysteria2_realms and node.hysteria2_realm_stun) and {
+			stunServers = node.hysteria2_realm_stun
+		} or nil
 	}
+
+	if config.obfs and config.obfs.gecko then
+		local min = tonumber(node.hysteria2_obfs_MinPacketSize) or 512
+		local max = tonumber(node.hysteria2_obfs_MaxPacketSize) or 1200
+		if min <= 0 or min > max or max > 2048 then
+			min = 512
+			max = 1200
+		end
+		config.obfs.gecko.minPacketSize = min
+		config.obfs.gecko.maxPacketSize = max
+	end
+
 	return config
 end
 
@@ -48,20 +72,26 @@ function gen_config(var)
 	local local_http_username = var["local_http_username"]
 	local local_http_password = var["local_http_password"]
 	local tcp_proxy_way = var["tcp_proxy_way"]
-	local server_host = var["server_host"] or node.address
+	local server_host = var["server_host"] or (node.address or ""):lower()
 	local server_port = var["server_port"] or node.port
 
 	if api.is_ipv6(server_host) then
 		server_host = api.get_ipv6_full(server_host)
 	end
-	local server = server_host .. ":" .. server_port
 
-	if (node.hysteria2_hop) then
-		server = server .. "," .. string.gsub(node.hysteria2_hop, ":", "-")
-	end
+	local port_hop = ((server_port or "") .. "," .. (node.hysteria2_hop or "")):gsub("^[%s,]+", ""):gsub("[%s,]+$", ""):gsub(":", "-")
+	local server = server_host .. ":" .. (port_hop ~= "" and port_hop or "443")
 
 	local config = {
-		server = server,
+		server = (function()
+			if node.hysteria2_realms and node.hysteria2_realm_url then
+				return node.hysteria2_realm_url:gsub("/+$", "")
+			end
+			return server
+		end)(),
+		realm = (node.hysteria2_realms and node.hysteria2_realm_stun) and {
+			stunServers = node.hysteria2_realm_stun
+		} or nil,
 		transport = {
 			type = "udp",
 			udp = node.hysteria2_hop and (function()
@@ -86,17 +116,17 @@ function gen_config(var)
 				return udp
 			end)() or nil
 		},
-		obfs = (node.hysteria2_obfs) and {
-			type = "salamander",
-			salamander = {
-				password = node.hysteria2_obfs
+		obfs = (node.hysteria2_obfs_type and node.hysteria2_obfs_password) and {
+			type = node.hysteria2_obfs_type,
+			[node.hysteria2_obfs_type] = {
+				password = node.hysteria2_obfs_password
 			}
 		} or nil,
 		auth = node.hysteria2_auth_password,
 		tls = {
 			sni = node.tls_serverName,
 			insecure = (node.tls_allowInsecure == "1") and true or false,
-			pinSHA256 = (node.hysteria2_tls_pinSHA256) and node.hysteria2_tls_pinSHA256 or nil,
+			pinSHA256 = (node.tls_pinSHA256) and node.tls_pinSHA256 or nil,
 		},
 		quic = {
 			initStreamReceiveWindow = (node.hysteria2_recv_window) and tonumber(node.hysteria2_recv_window) or nil,
@@ -138,6 +168,17 @@ function gen_config(var)
 			listen = "0.0.0.0:" .. local_udp_redir_port
 		} or nil
 	}
+
+	if config.obfs and config.obfs.gecko then
+		local min = tonumber(node.hysteria2_obfs_MinPacketSize) or 512
+		local max = tonumber(node.hysteria2_obfs_MaxPacketSize) or 1200
+		if min <= 0 or min > max or max > 2048 then
+			min = 512
+			max = 1200
+		end
+		config.obfs.gecko.minPacketSize = min
+		config.obfs.gecko.maxPacketSize = max
+	end
 
 	return jsonc.stringify(config, 1)
 end
